@@ -1,0 +1,66 @@
+{
+  "name": "n8n-nodes-moodle",
+  "version": "0.2.0",
+  "description": "n8n community node for comprehensive Moodle LMS integration - all Web Service API routes",
+  "keywords": [
+    "n8n-community-node-package",
+    "moodle",
+    "lms",
+    "education",
+    "workflow",
+    "automation",
+    "elearning"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/threatroute66/n8n-nodes-moodle",
+  "author": {
+    "name": "Murat Cakir"
+  },
+  "contributors": [
+    {
+      "name": "Collaborative development with Claude (Anthropic)",
+      "url": "https://claude.ai"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/threatroute66/n8n-nodes-moodle.git"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials",
+    "lintfix": "eslint nodes credentials --fix",
+    "prepublishOnly": "npm run build && npm run lint"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/MoodleApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Moodle/Moodle.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.0",
+    "n8n-workflow": "^1.25.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
