@@ -12,19 +12,15 @@
     "elearning"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/threatroute66/n8n-nodes-moodle",
+  "homepage": "https://github.com/marcostoduto/n8n-nodes-moodle-full",
   "author": {
-    "name": "Murat Cakir"
+    "name": "Marco Stoduto"
   },
   "contributors": [
-    {
-      "name": "Collaborative development with Claude (Anthropic)",
-      "url": "https://claude.ai"
-    }
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/threatroute66/n8n-nodes-moodle.git"
+    "url": "https://github.com/marcostoduto/n8n-nodes-moodle-full.git"
   },
   "engines": {
     "node": ">=20.15"
