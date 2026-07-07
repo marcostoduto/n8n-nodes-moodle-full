@@ -2621,7 +2621,7 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_course_enrolment_methods', courseid: courseId });
 					} else if (operation === 'getModule') {
 						const moduleId = this.getNodeParameter('moduleId', i) as number;
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_course_module', moduleid: moduleId });
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_course_module', cmid: moduleId });
 					}
 				} else if (resource === 'enrollment') {
 					if (operation === 'enrol') {
