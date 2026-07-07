@@ -35,9 +35,9 @@ function dateToTimestamp(dateStr: string): number {
 
 export class Moodle implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Moodle',
-		name: 'moodle',
-		icon: 'file:moodle.svg',
+		displayName: 'Moodle Full',
+		name: 'moodleFull',
+		icon: 'file:moodleFull.png',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{ $parameter["resource"] + " - " + $parameter["operation"] }}',
@@ -67,6 +67,7 @@ export class Moodle implements INodeType {
 					{ name: 'Chat', value: 'chat' },
 					{ name: 'Choice', value: 'choice' },
 					{ name: 'Cohort', value: 'cohort' },
+					{ name: 'Custom Certificate', value: 'customcert' },
 					{ name: 'Comment', value: 'comment' },
 					{ name: 'Competency', value: 'competency' },
 					{ name: 'Course', value: 'course' },
@@ -79,6 +80,7 @@ export class Moodle implements INodeType {
 					{ name: 'Glossary', value: 'glossary' },
 					{ name: 'Grade', value: 'grade' },
 					{ name: 'Group', value: 'group' },
+					{ name: 'Joomdle', value: 'joomdle' },
 					{ name: 'Lesson', value: 'lesson' },
 					{ name: 'Message', value: 'message' },
 					{ name: 'Note', value: 'note' },
@@ -144,6 +146,7 @@ export class Moodle implements INodeType {
 					{ name: 'Delete Section', value: 'deleteSection', description: 'Delete a section', action: 'Delete a course section' },
 					{ name: 'Get Enrolled Users', value: 'getEnrolledUsers', description: 'Get enrolled users', action: 'Get enrolled users' },
 					{ name: 'Get Enrolment Methods', value: 'getEnrolmentMethods', description: 'Get enrolment methods', action: 'Get enrolment methods' },
+					{ name: 'Get Module', value: 'getModule', description: 'Get course module by ID', action: 'Get course module' },
 				],
 				default: 'get',
 			},
@@ -644,6 +647,32 @@ export class Moodle implements INodeType {
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
+				displayOptions: { show: { resource: ['customcert'] } },
+				options: [
+					{ name: 'Delete Issue', value: 'deleteIssue', action: 'Delete certificate issue', description: 'Delete a certificate issue' },
+					{ name: 'Get Element HTML', value: 'getElementHtml', action: 'Get element HTML', description: 'Returns the HTML to display for an element' },
+					{ name: 'Save Element', value: 'saveElement', action: 'Save element data', description: 'Saves data for an element' },
+				],
+				default: 'deleteIssue',
+			},
+
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: { show: { resource: ['joomdle'] } },
+				options: [
+					{ name: 'Get Group Members', value: 'getGroupMembers', action: 'Get group members', description: 'Get group members via Joomdle' },
+				],
+				default: 'getGroupMembers',
+			},
+
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
 				displayOptions: { show: { resource: ['rating'] } },
 				options: [
 					{ name: 'Get', value: 'get', action: 'Get item ratings', description: 'Get item ratings' },
@@ -756,8 +785,11 @@ export class Moodle implements INodeType {
 					{ displayName: 'ID Number', name: 'idnumber', type: 'string', default: '', description: 'An arbitrary ID code' },
 					{ displayName: 'Institution', name: 'institution', type: 'string', default: '', description: 'Institution' },
 					{ displayName: 'Department', name: 'department', type: 'string', default: '', description: 'Department' },
+					{ displayName: 'Address', name: 'address', type: 'string', default: '', description: 'Postal address' },
 					{ displayName: 'City', name: 'city', type: 'string', default: '', description: 'City' },
 					{ displayName: 'Country', name: 'country', type: 'string', default: '', description: 'Country code (e.g. US)' },
+					{ displayName: 'Phone', name: 'phone1', type: 'string', default: '', description: 'Phone number' },
+					{ displayName: 'Mobile Phone', name: 'phone2', type: 'string', default: '', description: 'Mobile phone number' },
 					{ displayName: 'Timezone', name: 'timezone', type: 'string', default: '', description: 'Timezone (e.g. America/New_York)' },
 					{ displayName: 'Language', name: 'lang', type: 'string', default: '', description: 'Language code (e.g. en)' },
 					{ displayName: 'Description', name: 'description', type: 'string', default: '', description: 'User description' },
@@ -765,6 +797,7 @@ export class Moodle implements INodeType {
 					{ displayName: 'Mail Display', name: 'maildisplay', type: 'options', options: [{ name: 'Hide', value: 0 }, { name: 'Allow', value: 1 }, { name: 'Allow Course', value: 2 }], default: 2, description: 'Email display' },
 					{ displayName: 'Mail Format', name: 'mailformat', type: 'options', options: [{ name: 'Plain Text', value: 0 }, { name: 'HTML', value: 1 }], default: 1, description: 'Email format' },
 					{ displayName: 'Suspended', name: 'suspended', type: 'boolean', default: false, description: 'Suspend the user account' },
+					{ displayName: 'Custom Fields (JSON)', name: 'customfields', type: 'string', typeOptions: { rows: 4 }, default: '', description: 'Custom profile fields as JSON array. Example: [{"type":"biografia","value":"Testo"},{"type":"telefono_uff","value":"12345"}]' },
 				],
 			},
 			{
@@ -941,6 +974,15 @@ export class Moodle implements INodeType {
 				default: '',
 				displayOptions: { show: { resource: ['course'], operation: ['createSection', 'updateSection'] } },
 				description: 'Section summary',
+			},
+			{
+				displayName: 'Module ID',
+				name: 'moduleId',
+				type: 'number',
+				default: 0,
+				required: true,
+				displayOptions: { show: { resource: ['course'], operation: ['getModule'] } },
+				description: 'The ID of the course module',
 			},
 			{
 				displayName: 'Enrol User ID',
@@ -2204,6 +2246,52 @@ export class Moodle implements INodeType {
 				description: 'The message text',
 			},
 			{
+				displayName: 'Certificate Issue ID',
+				name: 'certificateIssueId',
+				type: 'number',
+				default: 0,
+				required: true,
+				displayOptions: { show: { resource: ['customcert'], operation: ['deleteIssue'] } },
+				description: 'The certificate issue ID to delete',
+			},
+			{
+				displayName: 'Certificate ID',
+				name: 'certificateId',
+				type: 'number',
+				default: 0,
+				required: true,
+				displayOptions: { show: { resource: ['customcert'], operation: ['getElementHtml', 'saveElement'] } },
+				description: 'The certificate ID',
+			},
+			{
+				displayName: 'Element ID',
+				name: 'certificateElementId',
+				type: 'number',
+				default: 0,
+				required: true,
+				displayOptions: { show: { resource: ['customcert'], operation: ['getElementHtml', 'saveElement'] } },
+				description: 'The element ID',
+			},
+			{
+				displayName: 'Element Data (JSON)',
+				name: 'certificateElementData',
+				type: 'string',
+				typeOptions: { rows: 4 },
+				default: '{}',
+				required: true,
+				displayOptions: { show: { resource: ['customcert'], operation: ['saveElement'] } },
+				description: 'JSON object with element data',
+			},
+			{
+				displayName: 'Joomdle Group ID',
+				name: 'joomdleGroupId',
+				type: 'number',
+				default: 0,
+				required: true,
+				displayOptions: { show: { resource: ['joomdle'], operation: ['getGroupMembers'] } },
+				description: 'The group ID to get members for',
+			},
+			{
 				displayName: 'Simple Course ID',
 				name: 'simpleCourseId',
 				type: 'number',
@@ -2370,9 +2458,22 @@ export class Moodle implements INodeType {
 						const lastname = this.getNodeParameter('lastname', i) as string;
 						const email = this.getNodeParameter('email', i) as string;
 						const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
+						const customfieldsStr = additionalFields.customfields as string || '';
+						delete additionalFields.customfields;
 						const userData: IDataObject = { username, password, firstname, lastname, email, ...additionalFields };
-						const flatParams = flattenObject({ users: [userData] });
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_create_users', ...flatParams });
+						const flatParams: IDataObject = { wsfunction: 'core_user_create_users', ...flattenObject({ users: [userData] }) };
+						if (customfieldsStr) {
+							try {
+								const customFields = JSON.parse(customfieldsStr);
+								if (Array.isArray(customFields)) {
+									customFields.forEach((cf: any, idx: number) => {
+										flatParams[`users[0][customfields][${idx}][type]`] = cf.type;
+										flatParams[`users[0][customfields][${idx}][value]`] = cf.value;
+									});
+								}
+							} catch (e) { /* invalid JSON, skip custom fields */ }
+						}
+						responseData = await moodleApiRequest.call(this, 'POST', flatParams);
 					} else if (operation === 'get') {
 						const userId = this.getNodeParameter('userId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users_by_field', field: 'id', 'values[0]': userId });
@@ -2386,9 +2487,22 @@ export class Moodle implements INodeType {
 					} else if (operation === 'update') {
 						const userId = this.getNodeParameter('userId', i) as number;
 						const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
+						const customfieldsStr = additionalFields.customfields as string || '';
+						delete additionalFields.customfields;
 						const userData: IDataObject = { id: userId, ...additionalFields };
-						const flatParams = flattenObject({ users: [userData] });
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_update_users', ...flatParams });
+						const flatParams: IDataObject = { wsfunction: 'core_user_update_users', ...flattenObject({ users: [userData] }) };
+						if (customfieldsStr) {
+							try {
+								const customFields = JSON.parse(customfieldsStr);
+								if (Array.isArray(customFields)) {
+									customFields.forEach((cf: any, idx: number) => {
+										flatParams[`users[0][customfields][${idx}][type]`] = cf.type;
+										flatParams[`users[0][customfields][${idx}][value]`] = cf.value;
+									});
+								}
+							} catch (e) { /* invalid JSON, skip custom fields */ }
+						}
+						responseData = await moodleApiRequest.call(this, 'POST', flatParams);
 					} else if (operation === 'delete') {
 						const userId = this.getNodeParameter('userId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_delete_users', 'userids[0]': userId });
@@ -2505,6 +2619,9 @@ export class Moodle implements INodeType {
 					} else if (operation === 'getEnrolmentMethods') {
 						const courseId = this.getNodeParameter('courseId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_course_enrolment_methods', courseid: courseId });
+					} else if (operation === 'getModule') {
+						const moduleId = this.getNodeParameter('moduleId', i) as number;
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_course_module', moduleid: moduleId });
 					}
 				} else if (resource === 'enrollment') {
 					if (operation === 'enrol') {
@@ -3333,6 +3450,33 @@ export class Moodle implements INodeType {
 						const chatId = this.getNodeParameter('chatId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_chat_login_user', chatid: chatId });
 					}
+				} else if (resource === 'customcert') {
+					if (operation === 'deleteIssue') {
+						const certificateIssueId = this.getNodeParameter('certificateIssueId', i) as number;
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_customcert_delete_issue', issueid: certificateIssueId });
+						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
+					} else if (operation === 'getElementHtml') {
+						const certificateId = this.getNodeParameter('certificateId', i) as number;
+						const certificateElementId = this.getNodeParameter('certificateElementId', i) as number;
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_customcert_get_element_html', certificateid: certificateId, elementid: certificateElementId });
+					} else if (operation === 'saveElement') {
+						const certificateId = this.getNodeParameter('certificateId', i) as number;
+						const certificateElementId = this.getNodeParameter('certificateElementId', i) as number;
+						const elementDataJson = this.getNodeParameter('certificateElementData', i) as string;
+						const elementData = JSON.parse(elementDataJson);
+						const params: IDataObject = {
+							wsfunction: 'mod_customcert_save_element',
+							certificateid: certificateId,
+							elementid: certificateElementId,
+						};
+						for (const [key, value] of Object.entries(elementData)) {
+							params[`data[${key}]`] = value as IDataObject;
+						}
+						responseData = await moodleApiRequest.call(this, 'POST', params);
+					}
+				} else if (resource === 'joomdle') {
+					const joomdleGroupId = this.getNodeParameter('joomdleGroupId', i) as number;
+					responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'joomdle_get_group_members', groupid: joomdleGroupId });
 				} else if (resource === 'book' || resource === 'page' || resource === 'url' || resource === 'resource' || resource === 'folder') {
 					const simpleCourseId = this.getNodeParameter('simpleCourseId', i) as number;
 					const courseids = [simpleCourseId];

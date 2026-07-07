@@ -1,6 +1,6 @@
 {
-  "name": "n8n-nodes-moodle",
-  "version": "0.2.0",
+  "name": "n8n-nodes-moodle-full",
+  "version": "0.2.5",
   "description": "n8n community node for comprehensive Moodle LMS integration - all Web Service API routes",
   "keywords": [
     "n8n-community-node-package",
@@ -31,8 +31,8 @@
   },
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+"build": "tsc && cp nodes/Moodle/moodleFull.png dist/nodes/Moodle/",
+		"dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials",
     "lintfix": "eslint nodes credentials --fix",
