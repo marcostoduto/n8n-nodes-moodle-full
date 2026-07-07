@@ -166,6 +166,7 @@ export class Moodle implements INodeType {
 					{ name: 'Get Self Enrol Instance', value: 'getSelfEnrolInstance', description: 'Get self enrolment instance', action: 'Get self enrolment instance' },
 					{ name: 'Get Enrolled With Capability', value: 'getEnrolledWithCapability', description: 'Get enrolled users with capability', action: 'Get enrolled with capability' },
 					{ name: 'Get Potential Users', value: 'getPotentialUsers', description: 'Get potential users', action: 'Get potential users' },
+					{ name: 'Get Enrolment', value: 'getEnrolment', description: 'Get enrolment by user and course', action: 'Get enrolment' },
 				],
 				default: 'enrol',
 			},
@@ -990,7 +991,7 @@ export class Moodle implements INodeType {
 				type: 'number',
 				default: 0,
 				required: true,
-				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getUserCourses'] } },
+				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getUserCourses', 'getEnrolment'] } },
 				description: 'The user ID',
 			},
 			{
@@ -999,7 +1000,7 @@ export class Moodle implements INodeType {
 				type: 'number',
 				default: 0,
 				required: true,
-				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getCourseUsers', 'getSelfEnrolInstance', 'getEnrolledWithCapability', 'getPotentialUsers'] } },
+				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getCourseUsers', 'getSelfEnrolInstance', 'getEnrolledWithCapability', 'getPotentialUsers', 'getEnrolment'] } },
 				description: 'The course ID',
 			},
 			{
@@ -2657,6 +2658,12 @@ export class Moodle implements INodeType {
 					} else if (operation === 'getPotentialUsers') {
 						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_potential_users', courseid: enrollCourseId });
+					} else if (operation === 'getEnrolment') {
+						const enrollUserId = this.getNodeParameter('enrollUserId', i) as number;
+						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_users_courses', userid: enrollUserId });
+						responseData = (responseData as any[] || []).find((c: any) => c.id === enrollCourseId) || null;
+						if (responseData === null || responseData === undefined) { responseData = { success: false, message: 'Enrolment not found' }; }
 					}
 				} else if (resource === 'grade') {
 					if (operation === 'getUserCourseGrades') {
