@@ -1262,7 +1262,7 @@ export class Moodle implements INodeType {
 				type: 'number',
 				default: 0,
 				required: true,
-				displayOptions: { show: { resource: ['group'], operation: ['updateGrouping', 'deleteGrouping'] } },
+				displayOptions: { show: { resource: ['group'], operation: ['updateGrouping', 'deleteGrouping', 'assignGrouping', 'unassignGrouping'] } },
 				description: 'The grouping ID',
 			},
 			{
