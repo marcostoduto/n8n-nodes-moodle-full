@@ -1,7 +1,10 @@
 import {
 	IExecuteFunctions,
 	IDataObject,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
+	INodeListSearchResult,
+	INodeParameterResourceLocator,
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
@@ -31,6 +34,14 @@ function flattenObject(obj: IDataObject, prefix: string = ''): IDataObject {
 
 function dateToTimestamp(dateStr: string): number {
 	return Math.floor(new Date(dateStr).getTime() / 1000);
+}
+
+function getRLValue(ctx: IExecuteFunctions, i: number, name: string, defaultVal: number = 0): number {
+	const param = ctx.getNodeParameter(name, i);
+	if (param !== null && typeof param === 'object' && '__rl' in (param as any)) {
+		return parseInt((param as INodeParameterResourceLocator).value as string, 10) || defaultVal;
+	}
+	return (typeof param === 'number' ? param : parseInt(param as string, 10)) || defaultVal;
 }
 
 export class Moodle implements INodeType {
@@ -697,13 +708,32 @@ export class Moodle implements INodeType {
 			},
 
 			{
-				displayName: 'User ID',
+				displayName: 'User',
 				name: 'userId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['user'], operation: ['get', 'update', 'delete', 'getPreferences', 'agreeSitePolicy'] } },
-				description: 'The ID of the user',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Field',
@@ -820,13 +850,32 @@ export class Moodle implements INodeType {
 				description: 'JSON object with appid, name, model, platform, version, pushid, uuid',
 			},
 			{
-				displayName: 'Course ID',
+				displayName: 'Course',
 				name: 'courseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['course'], operation: ['get', 'update', 'delete', 'duplicate', 'getContents', 'getSections', 'getEnrolledUsers', 'getEnrolmentMethods', 'createSection', 'updateSection', 'deleteSection'] } },
-				description: 'The ID of the course',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Full Name',
@@ -847,13 +896,32 @@ export class Moodle implements INodeType {
 				description: 'Short name of the course',
 			},
 			{
-				displayName: 'Category ID',
+				displayName: 'Category',
 				name: 'categoryid',
-				type: 'number',
-				default: 1,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a category...',
+						typeOptions: {
+							searchListMethod: 'searchCategories',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter category ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['course'], operation: ['create'] } },
-				description: 'Category ID for the course',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Search Value',
@@ -901,13 +969,32 @@ export class Moodle implements INodeType {
 				],
 			},
 			{
-				displayName: 'Category ID',
+				displayName: 'Category',
 				name: 'categoryId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a category...',
+						typeOptions: {
+							searchListMethod: 'searchCategories',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter category ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['course'], operation: ['getCategory', 'updateCategory', 'deleteCategory'] } },
-				description: 'The category ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Category Name',
@@ -919,12 +1006,31 @@ export class Moodle implements INodeType {
 				description: 'Name of the category',
 			},
 			{
-				displayName: 'Parent Category ID',
+				displayName: 'Parent Category',
 				name: 'parentCategoryId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['course'], operation: ['createCategory'] } },
-				description: 'Parent category ID (0 for top-level)',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a parent category...',
+						typeOptions: {
+							searchListMethod: 'searchCategories',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter parent category ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID (0 for top-level)',
 			},
 			{
 				displayName: 'Category ID Number',
@@ -986,22 +1092,60 @@ export class Moodle implements INodeType {
 				description: 'The ID of the course module',
 			},
 			{
-				displayName: 'Enrol User ID',
+				displayName: 'User',
 				name: 'enrollUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getUserCourses', 'getEnrolment'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Enrol Course ID',
+				displayName: 'Course',
 				name: 'enrollCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['enrollment'], operation: ['enrol', 'unenrol', 'getCourseUsers', 'getSelfEnrolInstance', 'getEnrolledWithCapability', 'getPotentialUsers', 'getEnrolment'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Role ID',
@@ -1030,22 +1174,60 @@ export class Moodle implements INodeType {
 				description: 'Capability to check (e.g. moodle/course:view)',
 			},
 			{
-				displayName: 'Grade User ID',
+				displayName: 'User',
 				name: 'gradeUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['grade'], operation: ['getUserCourseGrades', 'getGradesTable', 'getGradableUsers', 'updateGrades'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Grade Course ID',
+				displayName: 'Course',
 				name: 'gradeCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['grade'], operation: ['getUserCourseGrades', 'viewGradeReport', 'getGradesTable', 'getGradeItems', 'getGradeDefinitions', 'getGradableUsers', 'updateGrades'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Grade Component',
@@ -1072,13 +1254,32 @@ export class Moodle implements INodeType {
 				description: 'JSON array of grade data items',
 			},
 			{
-				displayName: 'Message To User ID',
+				displayName: 'Recipient',
 				name: 'messageToUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['message'], operation: ['send'] } },
-				description: 'The recipient user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Message Text',
@@ -1090,13 +1291,32 @@ export class Moodle implements INodeType {
 				description: 'The message text',
 			},
 			{
-				displayName: 'Message User ID',
+				displayName: 'User',
 				name: 'messageUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['message'], operation: ['getMessages', 'getConversations', 'getConversationMessages', 'markMessageRead', 'deleteMessage'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Conversation ID',
@@ -1108,13 +1328,32 @@ export class Moodle implements INodeType {
 				description: 'The conversation ID',
 			},
 			{
-				displayName: 'Current User ID',
+				displayName: 'Creator',
 				name: 'currentUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['message'], operation: ['createConversation'] } },
-				description: 'The creator user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Member IDs (comma-separated)',
@@ -1171,13 +1410,32 @@ export class Moodle implements INodeType {
 				],
 			},
 			{
-				displayName: 'Cohort ID',
+				displayName: 'Cohort',
 				name: 'cohortId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a cohort...',
+						typeOptions: {
+							searchListMethod: 'searchCohorts',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter cohort ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['cohort'], operation: ['get', 'update', 'delete', 'addMembers', 'deleteMembers', 'getMembers'] } },
-				description: 'The cohort ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Cohort Name',
@@ -1222,22 +1480,60 @@ export class Moodle implements INodeType {
 				description: 'Comma-separated list of user IDs',
 			},
 			{
-				displayName: 'Group ID',
+				displayName: 'Group',
 				name: 'groupId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a group...',
+						typeOptions: {
+							searchListMethod: 'searchGroups',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter group ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['group'], operation: ['get', 'update', 'delete', 'addMember', 'deleteMember', 'getMembers', 'assignGrouping', 'unassignGrouping'] } },
-				description: 'The group ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Group Course ID',
+				displayName: 'Course',
 				name: 'groupCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['group'], operation: ['create', 'getCourseGroups', 'createGrouping', 'getGroupings'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Group Name',
@@ -1257,13 +1553,32 @@ export class Moodle implements INodeType {
 				description: 'Description',
 			},
 			{
-				displayName: 'Grouping ID',
+				displayName: 'Grouping',
 				name: 'groupingId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a grouping...',
+						typeOptions: {
+							searchListMethod: 'searchGroupings',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter grouping ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['group'], operation: ['updateGrouping', 'deleteGrouping', 'assignGrouping', 'unassignGrouping'] } },
-				description: 'The grouping ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Grouping Name',
@@ -1350,28 +1665,85 @@ export class Moodle implements INodeType {
 				description: 'Event duration in seconds (0=no duration)',
 			},
 			{
-				displayName: 'Event Category ID',
+				displayName: 'Category',
 				name: 'eventCategoryId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['calendar'], operation: ['create', 'update'] } },
-				description: 'Category ID (for category events)',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a category...',
+						typeOptions: {
+							searchListMethod: 'searchCategories',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter category ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Event Course ID',
+				displayName: 'Course',
 				name: 'eventCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['calendar'], operation: ['create', 'update', 'get', 'getUpcoming', 'getMonthlyView', 'getDayView'] } },
-				description: 'Course ID',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Event Group ID',
+				displayName: 'Group',
 				name: 'eventGroupId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['calendar'], operation: ['create', 'update'] } },
-				description: 'Group ID (for group events)',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a group...',
+						typeOptions: {
+							searchListMethod: 'searchGroups',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter group ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Calendar Year',
@@ -1438,13 +1810,32 @@ export class Moodle implements INodeType {
 				description: 'JSON array of notes to update',
 			},
 			{
-				displayName: 'Badge User ID',
+				displayName: 'User',
 				name: 'badgeUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['badge'], operation: ['getUserBadges', 'issue', 'revoke'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Badge ID',
@@ -1456,12 +1847,31 @@ export class Moodle implements INodeType {
 				description: 'The badge ID',
 			},
 			{
-				displayName: 'Badge Course ID',
+				displayName: 'Course',
 				name: 'badgeCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['badge'], operation: ['getUserBadges'] } },
-				description: 'Course ID (0 for all)',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID (leave empty for all)',
 			},
 			{
 				displayName: 'File Context ID',
@@ -1594,31 +2004,88 @@ export class Moodle implements INodeType {
 				description: 'Description of the competency',
 			},
 			{
-				displayName: 'Comp Course ID',
+				displayName: 'Course',
 				name: 'compCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['competency'], operation: ['getUserCompetencies'] } },
-				description: 'Course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
-				displayName: 'Comp User ID',
+				displayName: 'User',
 				name: 'compUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a user...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter user ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['competency'], operation: ['getUserCompetencies', 'getUserCompetency'] } },
-				description: 'User ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Quiz Course ID',
 				name: 'quizCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['quiz'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Quiz ID',
@@ -1641,11 +2108,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Quiz User ID',
 				name: 'quizUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a User...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter User ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['quiz'], operation: ['startAttempt', 'getUserBestGrade', 'getUserAttempts'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Quiz Data JSON',
@@ -1666,11 +2152,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Assign Course ID',
 				name: 'assignCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['assignment'], operation: ['get', 'getSubmissions', 'getSubmissionStatus', 'saveSubmission', 'submitForGrading', 'saveGrade', 'getGrades', 'listParticipants', 'lock', 'unlock', 'revertToDraft', 'getUserFlags', 'setUserFlags'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Assign ID',
@@ -1684,11 +2189,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Assign User ID',
 				name: 'assignUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a User...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter User ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['assignment'], operation: ['getSubmissionStatus', 'saveGrade', 'getGrades', 'lock', 'unlock', 'revertToDraft', 'getUserFlags', 'setUserFlags'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Assign Plugindata JSON',
@@ -1733,10 +2257,29 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Assign Group ID',
 				name: 'assignGroupId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				displayOptions: { show: { resource: ['assignment'], operation: ['listParticipants'] } },
-				description: 'Group ID (0 for all)',
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Group...',
+						typeOptions: {
+							searchListMethod: 'searchGroups',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Group ID...',
+						initType: 'number',
+					},
+				],
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Assign Filter',
@@ -1756,11 +2299,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Forum Course ID',
 				name: 'forumCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['forum'], operation: ['getByCourse', 'addDiscussion', 'canAddDiscussion'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Forum ID',
@@ -1835,11 +2397,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Glossary Course ID',
 				name: 'glossaryCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['glossary'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Glossary ID',
@@ -1862,20 +2443,58 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Glossary Author ID',
 				name: 'glossaryAuthorId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a User...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter User ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['glossary'], operation: ['getEntriesByAuthor'] } },
-				description: 'The author user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Glossary Category ID',
 				name: 'glossaryCategoryId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Category...',
+						typeOptions: {
+							searchListMethod: 'searchCategories',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Category ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['glossary'], operation: ['getEntriesByCategory'] } },
-				description: 'The category ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Entry Concept',
@@ -1914,11 +2533,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Lesson Course ID',
 				name: 'lessonCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['lesson'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Lesson ID',
@@ -1941,11 +2579,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Lesson User ID',
 				name: 'lessonUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a User...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter User ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['lesson'], operation: ['launchAttempt', 'getUserAttempt', 'getUserGrade', 'getQuestionsAttempts'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Lesson Attempt',
@@ -1966,11 +2623,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'SCORM Course ID',
 				name: 'scormCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['scorm'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'SCORM ID',
@@ -1984,11 +2660,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'SCORM User ID',
 				name: 'scormUserId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a User...',
+						typeOptions: {
+							searchListMethod: 'searchUsers',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter User ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['scorm'], operation: ['getTracks', 'insertTracks', 'getUserData'] } },
-				description: 'The user ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'SCORM Attempt',
@@ -2010,11 +2705,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Workshop Course ID',
 				name: 'workshopCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['workshop'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Workshop ID',
@@ -2028,11 +2742,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Data Course ID',
 				name: 'dataCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['data'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Data ID',
@@ -2072,11 +2805,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Survey Course ID',
 				name: 'surveyCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['survey'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Survey ID',
@@ -2099,11 +2851,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Choice Course ID',
 				name: 'choiceCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['choice'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Choice ID',
@@ -2126,11 +2897,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Feedback Course ID',
 				name: 'feedbackCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['feedback'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Feedback ID',
@@ -2161,11 +2951,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Wiki Course ID',
 				name: 'wikiCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['wiki'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Wiki ID',
@@ -2214,11 +3023,30 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Chat Course ID',
 				name: 'chatCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['chat'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Chat ID',
@@ -2286,20 +3114,58 @@ export class Moodle implements INodeType {
 			{
 				displayName: 'Joomdle Group ID',
 				name: 'joomdleGroupId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Group...',
+						typeOptions: {
+							searchListMethod: 'searchGroups',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Group ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['joomdle'], operation: ['getGroupMembers'] } },
-				description: 'The group ID to get members for',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Simple Course ID',
 				name: 'simpleCourseId',
-				type: 'number',
-				default: 0,
+				type: 'resourceLocator',
+				default: { mode: 'list', value: '' },
 				required: true,
+				modes: [
+					{
+						displayName: 'By List',
+						name: 'list',
+						type: 'list',
+						placeholder: 'Select a Course...',
+						typeOptions: {
+							searchListMethod: 'searchCourses',
+							searchable: true,
+						},
+					},
+					{
+						displayName: 'By ID',
+						name: 'id',
+						type: 'string',
+						placeholder: 'Enter Course ID...',
+						initType: 'number',
+					},
+				],
 				displayOptions: { show: { resource: ['book', 'page', 'url', 'resource', 'folder'], operation: ['getByCourse'] } },
-				description: 'The course ID',
+				description: 'Choose from the list, or specify an ID',
 			},
 			{
 				displayName: 'Rating Component',
@@ -2441,6 +3307,89 @@ export class Moodle implements INodeType {
 		],
 	};
 
+	methods = {
+		listSearch: {
+			searchCourses: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const courses = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_courses' });
+				const results = ((courses || []) as any[]).map(c => ({
+					name: c.fullname || c.shortname || `Course #${c.id}`,
+					value: String(c.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+			searchUsers: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const users = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'id', 'criteria[0][value]': '0' });
+				const results = ((users?.users || []) as any[]).map(u => ({
+					name: `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.username || `User #${u.id}`,
+					value: String(u.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+			searchCategories: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const categories = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_categories' });
+				const results = ((categories || []) as any[]).map(c => ({
+					name: c.name || `Category #${c.id}`,
+					value: String(c.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+			searchGroups: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const courseIdRL = this.getNodeParameter('groupCourseId') as INodeParameterResourceLocator | number;
+				const courseId = courseIdRL && typeof courseIdRL === 'object' && '__rl' in courseIdRL
+					? parseInt(String((courseIdRL as INodeParameterResourceLocator).value), 10) : Number(courseIdRL);
+				if (!courseId) {
+					return { results: [] };
+				}
+				const groups = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_course_groups', courseid: courseId });
+				const results = ((groups || []) as any[]).map(g => ({
+					name: g.name || `Group #${g.id}`,
+					value: String(g.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+			searchGroupings: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const courseIdRL = this.getNodeParameter('groupCourseId') as INodeParameterResourceLocator | number;
+				const courseId = courseIdRL && typeof courseIdRL === 'object' && '__rl' in courseIdRL
+					? parseInt(String((courseIdRL as INodeParameterResourceLocator).value), 10) : Number(courseIdRL);
+				if (!courseId) {
+					return { results: [] };
+				}
+				const groupings = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_course_groupings', courseid: courseId });
+				const results = ((groupings || []) as any[]).map(g => ({
+					name: g.name || `Grouping #${g.id}`,
+					value: String(g.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+			searchCohorts: async function(
+				this: ILoadOptionsFunctions,
+				_filter?: string,
+			): Promise<INodeListSearchResult> {
+				const cohorts = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_get_cohorts', cohortids: [0] });
+				const results = ((cohorts || []) as any[]).map(c => ({
+					name: c.name || `Cohort #${c.id}`,
+					value: String(c.id),
+				})).sort((a, b) => a.name.localeCompare(b.name));
+				return { results };
+			},
+		},
+	};
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -2476,7 +3425,7 @@ export class Moodle implements INodeType {
 						}
 						responseData = await moodleApiRequest.call(this, 'POST', flatParams);
 					} else if (operation === 'get') {
-						const userId = this.getNodeParameter('userId', i) as number;
+						const userId = getRLValue(this, i, 'userId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users_by_field', field: 'id', 'values[0]': userId });
 						responseData = Array.isArray(responseData) ? responseData[0] : responseData;
 					} else if (operation === 'getByField') {
@@ -2486,7 +3435,7 @@ export class Moodle implements INodeType {
 					} else if (operation === 'getAll') {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'id', 'criteria[0][value]': '0' });
 					} else if (operation === 'update') {
-						const userId = this.getNodeParameter('userId', i) as number;
+						const userId = getRLValue(this, i, 'userId');
 						const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;
 						const customfieldsStr = additionalFields.customfields as string || '';
 						delete additionalFields.customfields;
@@ -2505,18 +3454,18 @@ export class Moodle implements INodeType {
 						}
 						responseData = await moodleApiRequest.call(this, 'POST', flatParams);
 					} else if (operation === 'delete') {
-						const userId = this.getNodeParameter('userId', i) as number;
+						const userId = getRLValue(this, i, 'userId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_delete_users', 'userids[0]': userId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getPreferences') {
-						const userId = this.getNodeParameter('userId', i) as number;
+						const userId = getRLValue(this, i, 'userId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_user_preferences', userid: userId });
 					} else if (operation === 'setPreferences') {
 						const preferencesJson = this.getNodeParameter('preferencesJson', i) as string;
 						const preferences = JSON.parse(preferencesJson);
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_set_user_preferences', ...flattenObject({ preferences }) });
 					} else if (operation === 'agreeSitePolicy') {
-						const userId = this.getNodeParameter('userId', i) as number;
+						const userId = getRLValue(this, i, 'userId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_agree_site_policy', userid: userId });
 					} else if (operation === 'addDevice') {
 						const addDeviceParams = this.getNodeParameter('addDeviceParams', i) as string;
@@ -2527,7 +3476,7 @@ export class Moodle implements INodeType {
 					if (operation === 'create') {
 						const fullname = this.getNodeParameter('fullname', i) as string;
 						const shortname = this.getNodeParameter('shortname', i) as string;
-						const categoryid = this.getNodeParameter('categoryid', i) as number;
+						const categoryid = getRLValue(this, i, 'categoryid');
 						const additionalFields = this.getNodeParameter('courseAdditionalFields', i) as IDataObject;
 						if (additionalFields.startdate && typeof additionalFields.startdate === 'string') { additionalFields.startdate = dateToTimestamp(additionalFields.startdate as string); }
 						if (additionalFields.enddate && typeof additionalFields.enddate === 'string') { additionalFields.enddate = dateToTimestamp(additionalFields.enddate as string); }
@@ -2535,7 +3484,7 @@ export class Moodle implements INodeType {
 						const courseData: IDataObject = { fullname, shortname, categoryid, ...additionalFields };
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_create_courses', ...flattenObject({ courses: [courseData] }) });
 					} else if (operation === 'get') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_courses_by_field', field: 'id', value: courseId });
 					} else if (operation === 'getAll') {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_courses' });
@@ -2544,7 +3493,7 @@ export class Moodle implements INodeType {
 						const fieldName = this.getNodeParameter('fieldName', i) as string;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_search_courses', criterianame: fieldName || 'search', 'criteriavalue': searchValue });
 					} else if (operation === 'update') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						const additionalFields = this.getNodeParameter('courseAdditionalFields', i) as IDataObject;
 						const courseData: IDataObject = { id: courseId, ...additionalFields };
 						if (courseData.visible !== undefined) { courseData.visible = courseData.visible ? 1 : 0; }
@@ -2552,21 +3501,21 @@ export class Moodle implements INodeType {
 						if (courseData.enddate && typeof courseData.enddate === 'string') { courseData.enddate = dateToTimestamp(courseData.enddate as string); }
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_update_courses', ...flattenObject({ courses: [courseData] }) });
 					} else if (operation === 'delete') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_delete_courses', 'courseids[0]': courseId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'duplicate') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_duplicate_course', courseid: courseId });
 					} else if (operation === 'getCategories') {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_categories' });
 					} else if (operation === 'getCategory') {
-						const categoryId = this.getNodeParameter('categoryId', i) as number;
+						const categoryId = getRLValue(this, i, 'categoryId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_categories', 'criteria[0][key]': 'id', 'criteria[0][value]': categoryId });
 						responseData = Array.isArray(responseData) ? responseData[0] : responseData;
 					} else if (operation === 'createCategory') {
 						const categoryName = this.getNodeParameter('categoryName', i) as string;
-						const parentCategoryId = this.getNodeParameter('parentCategoryId', i) as number;
+						const parentCategoryId = getRLValue(this, i, 'parentCategoryId');
 						const categoryIdNumber = this.getNodeParameter('categoryIdNumber', i) as string;
 						const categoryDescription = this.getNodeParameter('categoryDescription', i) as string;
 						const catData: IDataObject = { name: categoryName, parent: parentCategoryId };
@@ -2574,7 +3523,7 @@ export class Moodle implements INodeType {
 						if (categoryDescription) catData.description = categoryDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_create_categories', ...flattenObject({ categories: [catData] }) });
 					} else if (operation === 'updateCategory') {
-						const categoryId = this.getNodeParameter('categoryId', i) as number;
+						const categoryId = getRLValue(this, i, 'categoryId');
 						const categoryIdNumber = this.getNodeParameter('categoryIdNumber', i) as string;
 						const categoryDescription = this.getNodeParameter('categoryDescription', i) as string;
 						const catData: IDataObject = { id: categoryId };
@@ -2582,17 +3531,17 @@ export class Moodle implements INodeType {
 						if (categoryDescription) catData.description = categoryDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_update_categories', ...flattenObject({ categories: [catData] }) });
 					} else if (operation === 'deleteCategory') {
-						const categoryId = this.getNodeParameter('categoryId', i) as number;
+						const categoryId = getRLValue(this, i, 'categoryId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_delete_categories', 'categories[0][id]': categoryId, 'categories[0][recursive]': 0 });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getContents') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_contents', courseid: courseId });
 					} else if (operation === 'getSections') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_get_sections', courseid: courseId });
 					} else if (operation === 'createSection') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						const sectionNumber = this.getNodeParameter('sectionNumber', i) as number;
 						const sectionName = this.getNodeParameter('sectionName', i) as string;
 						const sectionSummary = this.getNodeParameter('sectionSummary', i) as string;
@@ -2601,7 +3550,7 @@ export class Moodle implements INodeType {
 						if (sectionSummary) sectionData.summary = sectionSummary;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_create_section', courseid: courseId, ...sectionData });
 					} else if (operation === 'updateSection') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						const sectionId = this.getNodeParameter('sectionId', i) as number;
 						const sectionName = this.getNodeParameter('sectionName', i) as string;
 						const sectionSummary = this.getNodeParameter('sectionSummary', i) as string;
@@ -2610,15 +3559,15 @@ export class Moodle implements INodeType {
 						if (sectionSummary) sectionData.summary = sectionSummary;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_update_section', courseid: courseId, sectionid: sectionId, ...sectionData });
 					} else if (operation === 'deleteSection') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						const sectionId = this.getNodeParameter('sectionId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_course_delete_section', courseid: courseId, sectionid: sectionId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getEnrolledUsers') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_enrolled_users', courseid: courseId });
 					} else if (operation === 'getEnrolmentMethods') {
-						const courseId = this.getNodeParameter('courseId', i) as number;
+						const courseId = getRLValue(this, i, 'courseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_course_enrolment_methods', courseid: courseId });
 					} else if (operation === 'getModule') {
 						const moduleId = this.getNodeParameter('moduleId', i) as number;
@@ -2626,70 +3575,70 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'enrollment') {
 					if (operation === 'enrol') {
-						const enrollUserId = this.getNodeParameter('enrollUserId', i) as number;
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollUserId = getRLValue(this, i, 'enrollUserId');
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						const roleId = this.getNodeParameter('roleId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'enrol_manual_enrol_users', 'enrolments[0][userid]': enrollUserId, 'enrolments[0][courseid]': enrollCourseId, 'enrolments[0][roleid]': roleId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'unenrol') {
-						const enrollUserId = this.getNodeParameter('enrollUserId', i) as number;
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollUserId = getRLValue(this, i, 'enrollUserId');
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						const instanceId = this.getNodeParameter('instanceId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'enrol_manual_unenrol_users', 'enrolments[0][userid]': enrollUserId, 'enrolments[0][courseid]': enrollCourseId, 'enrolments[0][instanceid]': instanceId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getUserCourses') {
-						const enrollUserId = this.getNodeParameter('enrollUserId', i) as number;
+						const enrollUserId = getRLValue(this, i, 'enrollUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_users_courses', userid: enrollUserId });
 					} else if (operation === 'getCourseUsers') {
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_enrolled_users', courseid: enrollCourseId });
 					} else if (operation === 'selfEnrol') {
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						const instanceId = this.getNodeParameter('instanceId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'enrol_self_enrol_user', courseid: enrollCourseId, instanceid: instanceId });
 					} else if (operation === 'getSelfEnrolInstance') {
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						const instanceId = this.getNodeParameter('instanceId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'enrol_self_get_instance_info', courseid: enrollCourseId, instanceid: instanceId });
 					} else if (operation === 'getEnrolledWithCapability') {
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						const capability = this.getNodeParameter('capability', i) as string;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_enrolled_users_with_capability', courseid: enrollCourseId, 'capabilities[0]': capability });
 					} else if (operation === 'getPotentialUsers') {
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_potential_users', courseid: enrollCourseId });
 					} else if (operation === 'getEnrolment') {
-						const enrollUserId = this.getNodeParameter('enrollUserId', i) as number;
-						const enrollCourseId = this.getNodeParameter('enrollCourseId', i) as number;
+						const enrollUserId = getRLValue(this, i, 'enrollUserId');
+						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_users_courses', userid: enrollUserId });
 						responseData = (responseData as any[] || []).find((c: any) => c.id === enrollCourseId) || null;
 						if (responseData === null || responseData === undefined) { responseData = { success: false, message: 'Enrolment not found' }; }
 					}
 				} else if (resource === 'grade') {
 					if (operation === 'getUserCourseGrades') {
-						const gradeUserId = this.getNodeParameter('gradeUserId', i) as number;
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeUserId = getRLValue(this, i, 'gradeUserId');
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'gradereport_overview_get_course_grades', userid: gradeUserId, courseid: gradeCourseId });
 					} else if (operation === 'viewGradeReport') {
-						const gradeUserId = this.getNodeParameter('gradeUserId', i) as number;
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeUserId = getRLValue(this, i, 'gradeUserId');
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'gradereport_overview_view_grade_report', userid: gradeUserId, courseid: gradeCourseId });
 					} else if (operation === 'getGradesTable') {
-						const gradeUserId = this.getNodeParameter('gradeUserId', i) as number;
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeUserId = getRLValue(this, i, 'gradeUserId');
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'gradereport_user_get_grades_table', userid: gradeUserId, courseid: gradeCourseId });
 					} else if (operation === 'getGradeItems') {
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_grades_get_grade_items', courseid: gradeCourseId });
 					} else if (operation === 'getGradeDefinitions') {
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_grades_get_definitions', courseid: gradeCourseId });
 					} else if (operation === 'getGradableUsers') {
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_grades_get_gradable_users', courseid: gradeCourseId });
 					} else if (operation === 'updateGrades') {
-						const gradeUserId = this.getNodeParameter('gradeUserId', i) as number;
-						const gradeCourseId = this.getNodeParameter('gradeCourseId', i) as number;
+						const gradeUserId = getRLValue(this, i, 'gradeUserId');
+						const gradeCourseId = getRLValue(this, i, 'gradeCourseId');
 						const gradeComponent = this.getNodeParameter('gradeComponent', i) as string;
 						const gradeActivityId = this.getNodeParameter('gradeActivityId', i) as number;
 						const gradeDataJson = this.getNodeParameter('gradeDataJson', i) as string;
@@ -2698,11 +3647,11 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'message') {
 					if (operation === 'send') {
-						const messageToUserId = this.getNodeParameter('messageToUserId', i) as number;
+						const messageToUserId = getRLValue(this, i, 'messageToUserId');
 						const messageText = this.getNodeParameter('messageText', i) as string;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_message_send_instant_messages', 'messages[0][touserid]': messageToUserId, 'messages[0][text]': messageText });
 					} else if (operation === 'getMessages') {
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						const filters = this.getNodeParameter('messageFilters', i) as IDataObject;
 						const reqParams: IDataObject = { wsfunction: 'core_message_get_messages', useridto: messageUserId };
 						if (filters.limitfrom) reqParams.limitfrom = filters.limitfrom;
@@ -2712,7 +3661,7 @@ export class Moodle implements INodeType {
 						if (filters.newestfirst !== undefined) reqParams.newestfirst = filters.newestfirst ? 1 : 0;
 						responseData = await moodleApiRequest.call(this, 'POST', {}, reqParams);
 					} else if (operation === 'getConversations') {
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						const filters = this.getNodeParameter('messageFilters', i) as IDataObject;
 						const reqParams: IDataObject = { wsfunction: 'core_message_get_conversations', userid: messageUserId };
 						if (filters.limitfrom) reqParams.limitfrom = filters.limitfrom;
@@ -2720,10 +3669,10 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', {}, reqParams);
 					} else if (operation === 'getConversationMessages') {
 						const conversationId = this.getNodeParameter('conversationId', i) as number;
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_message_get_conversation_messages', conversationid: conversationId, userid: messageUserId });
 					} else if (operation === 'createConversation') {
-						const currentUserId = this.getNodeParameter('currentUserId', i) as number;
+						const currentUserId = getRLValue(this, i, 'currentUserId');
 						const memberIdsStr = this.getNodeParameter('memberIds', i) as string;
 						const conversationType = this.getNodeParameter('conversationType', i) as number;
 						const conversationName = this.getNodeParameter('conversationName', i) as string;
@@ -2733,16 +3682,16 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', {}, reqParams);
 					} else if (operation === 'deleteConversation') {
 						const conversationId = this.getNodeParameter('conversationId', i) as number;
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_message_delete_conversations_by_id', conversationid: conversationId, userid: messageUserId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'markMessageRead') {
 						const messageId = this.getNodeParameter('messageId', i) as number;
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_message_mark_message_read', messageid: messageId, userid: messageUserId });
 					} else if (operation === 'deleteMessage') {
 						const messageId = this.getNodeParameter('messageId', i) as number;
-						const messageUserId = this.getNodeParameter('messageUserId', i) as number;
+						const messageUserId = getRLValue(this, i, 'messageUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_message_delete_message', messageid: messageId, userid: messageUserId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'sendToConversation') {
@@ -2773,10 +3722,10 @@ export class Moodle implements INodeType {
 						if (cohortDescription) cohortData.description = cohortDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_create_cohorts', ...flattenObject({ cohorts: [cohortData] }) });
 					} else if (operation === 'get') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_get_cohorts', cohortids: [cohortId] });
 					} else if (operation === 'update') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						const cohortName = this.getNodeParameter('cohortName', i) as string;
 						const cohortIdNumber = this.getNodeParameter('cohortIdNumber', i) as string;
 						const cohortContextId = this.getNodeParameter('cohortContextId', i) as number;
@@ -2786,102 +3735,102 @@ export class Moodle implements INodeType {
 						if (cohortDescription) cohortData.description = cohortDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_update_cohorts', ...flattenObject({ cohorts: [cohortData] }) });
 					} else if (operation === 'delete') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_delete_cohorts', 'cohortids[0]': cohortId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'addMembers') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						const cohortMemberIds = this.getNodeParameter('cohortMemberIds', i) as string;
 						const memberIds = cohortMemberIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
 						const members = memberIds.map(uid => ({ cohortid: cohortId, userid: uid }));
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_add_cohort_members', ...flattenObject({ members }) });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'deleteMembers') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						const cohortMemberIds = this.getNodeParameter('cohortMemberIds', i) as string;
 						const memberIds = cohortMemberIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
 						const members = memberIds.map(uid => ({ cohortid: cohortId, userid: uid }));
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_delete_cohort_members', ...flattenObject({ members }) });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getMembers') {
-						const cohortId = this.getNodeParameter('cohortId', i) as number;
+						const cohortId = getRLValue(this, i, 'cohortId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_cohort_get_cohort_members', 'cohortids[0]': cohortId });
 					}
 				} else if (resource === 'group') {
 					if (operation === 'create') {
-						const groupCourseId = this.getNodeParameter('groupCourseId', i) as number;
+						const groupCourseId = getRLValue(this, i, 'groupCourseId');
 						const groupName = this.getNodeParameter('groupName', i) as string;
 						const groupDescription = this.getNodeParameter('groupDescription', i) as string;
 						const groupData: IDataObject = { courseid: groupCourseId, name: groupName };
 						if (groupDescription) groupData.description = groupDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_create_groups', ...flattenObject({ groups: [groupData] }) });
 					} else if (operation === 'get') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_groups', 'groupids[0]': groupId });
 					} else if (operation === 'update') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						const groupDescription = this.getNodeParameter('groupDescription', i) as string;
 						const groupData: IDataObject = { id: groupId };
 						if (groupDescription) groupData.description = groupDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_update_groups', ...flattenObject({ groups: [groupData] }) });
 					} else if (operation === 'delete') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_delete_groups', 'groupids[0]': groupId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getCourseGroups') {
-						const groupCourseId = this.getNodeParameter('groupCourseId', i) as number;
+						const groupCourseId = getRLValue(this, i, 'groupCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_course_groups', courseid: groupCourseId });
 					} else if (operation === 'addMember') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						const groupMemberIds = this.getNodeParameter('groupMemberIds', i) as string;
 						const memberIds = groupMemberIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
 						const members = memberIds.map(uid => ({ groupid: groupId, userid: uid }));
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_add_group_members', ...flattenObject({ members }) });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'deleteMember') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						const groupMemberIds = this.getNodeParameter('groupMemberIds', i) as string;
 						const memberIds = groupMemberIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
 						const members = memberIds.map(uid => ({ groupid: groupId, userid: uid }));
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_delete_group_members', ...flattenObject({ members }) });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getMembers') {
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_group_members', 'groupids[0]': groupId });
 					} else if (operation === 'createGrouping') {
-						const groupCourseId = this.getNodeParameter('groupCourseId', i) as number;
+						const groupCourseId = getRLValue(this, i, 'groupCourseId');
 						const groupingName = this.getNodeParameter('groupingName', i) as string;
 						const groupingDescription = this.getNodeParameter('groupingDescription', i) as string;
 						const groupingData: IDataObject = { courseid: groupCourseId, name: groupingName };
 						if (groupingDescription) groupingData.description = groupingDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_create_groupings', ...flattenObject({ groupings: [groupingData] }) });
 					} else if (operation === 'getGroupings') {
-						const groupCourseId = this.getNodeParameter('groupCourseId', i) as number;
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_groupings', 'groupingids[0]': 0, courseid: groupCourseId });
+						const groupCourseId = getRLValue(this, i, 'groupCourseId');
+						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_course_groupings', courseid: groupCourseId });
 					} else if (operation === 'updateGrouping') {
-						const groupingId = this.getNodeParameter('groupingId', i) as number;
+						const groupingId = getRLValue(this, i, 'groupingId');
 						const groupingDescription = this.getNodeParameter('groupingDescription', i) as string;
 						const groupingData: IDataObject = { id: groupingId };
 						if (groupingDescription) groupingData.description = groupingDescription;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_update_groupings', ...flattenObject({ groupings: [groupingData] }) });
 					} else if (operation === 'deleteGrouping') {
-						const groupingId = this.getNodeParameter('groupingId', i) as number;
+						const groupingId = getRLValue(this, i, 'groupingId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_delete_groupings', 'groupingids[0]': groupingId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'assignGrouping') {
-						const groupingId = this.getNodeParameter('groupingId', i) as number;
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupingId = getRLValue(this, i, 'groupingId');
+						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_assign_grouping', 'assignments[0][groupingid]': groupingId, 'assignments[0][groupid]': groupId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'unassignGrouping') {
-						const groupingId = this.getNodeParameter('groupingId', i) as number;
-						const groupId = this.getNodeParameter('groupId', i) as number;
+						const groupingId = getRLValue(this, i, 'groupingId');
+						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_unassign_grouping', 'unassignments[0][groupingid]': groupingId, 'unassignments[0][groupid]': groupId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					}
 				} else if (resource === 'calendar') {
 					if (operation === 'get') {
-						const eventCourseId = this.getNodeParameter('eventCourseId', i) as number;
+						const eventCourseId = getRLValue(this, i, 'eventCourseId');
 						const options = this.getNodeParameter('eventsOptions', i) as IDataObject;
 						const eventData: IDataObject = { 'events[0][courseid]': eventCourseId };
 						if (options.eventtypes) eventData['events[0][eventtype]'] = options.eventtypes;
@@ -2893,9 +3842,9 @@ export class Moodle implements INodeType {
 						const eventType = this.getNodeParameter('eventType', i) as string;
 						const eventDate = this.getNodeParameter('eventDate', i) as string;
 						const eventDuration = this.getNodeParameter('eventDuration', i) as number;
-						const eventCategoryId = this.getNodeParameter('eventCategoryId', i) as number;
-						const eventCourseId = this.getNodeParameter('eventCourseId', i) as number;
-						const eventGroupId = this.getNodeParameter('eventGroupId', i) as number;
+						const eventCategoryId = getRLValue(this, i, 'eventCategoryId');
+						const eventCourseId = getRLValue(this, i, 'eventCourseId');
+						const eventGroupId = getRLValue(this, i, 'eventGroupId');
 						const events: IDataObject = { name: eventName, description: eventDescription, eventtype: eventType, timestart: dateToTimestamp(eventDate) };
 						if (eventDuration > 0) events.timeduration = eventDuration;
 						if (eventCategoryId) events.categoryid = eventCategoryId;
@@ -2915,18 +3864,18 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_calendar_delete_calendar_events', 'events[0][eventid]': eventId, 'events[0][repeat]': 0 });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getUpcoming') {
-						const eventCourseId = this.getNodeParameter('eventCourseId', i) as number;
+						const eventCourseId = getRLValue(this, i, 'eventCourseId');
 						const options = this.getNodeParameter('eventsOptions', i) as IDataObject;
 						const reqParams: IDataObject = { wsfunction: 'core_calendar_get_calendar_upcoming', courseid: eventCourseId };
 						if (options.limitnum) reqParams.limitnum = options.limitnum;
 						responseData = await moodleApiRequest.call(this, 'POST', {}, reqParams);
 					} else if (operation === 'getMonthlyView') {
-						const eventCourseId = this.getNodeParameter('eventCourseId', i) as number;
+						const eventCourseId = getRLValue(this, i, 'eventCourseId');
 						const calendarYear = this.getNodeParameter('calendarYear', i) as number;
 						const calendarMonth = this.getNodeParameter('calendarMonth', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_calendar_get_calendar_monthly_view', year: calendarYear || undefined, month: calendarMonth || undefined, courseid: eventCourseId });
 					} else if (operation === 'getDayView') {
-						const eventCourseId = this.getNodeParameter('eventCourseId', i) as number;
+						const eventCourseId = getRLValue(this, i, 'eventCourseId');
 						const calendarYear = this.getNodeParameter('calendarYear', i) as number;
 						const calendarMonth = this.getNodeParameter('calendarMonth', i) as number;
 						const calendarDay = this.getNodeParameter('calendarDay', i) as number;
@@ -2953,15 +3902,15 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'badge') {
 					if (operation === 'getUserBadges') {
-						const badgeUserId = this.getNodeParameter('badgeUserId', i) as number;
-						const badgeCourseId = this.getNodeParameter('badgeCourseId', i) as number;
+						const badgeUserId = getRLValue(this, i, 'badgeUserId');
+						const badgeCourseId = getRLValue(this, i, 'badgeCourseId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_badges_get_user_badges', userid: badgeUserId, courseid: badgeCourseId || undefined });
 					} else if (operation === 'issue') {
-						const badgeUserId = this.getNodeParameter('badgeUserId', i) as number;
+						const badgeUserId = getRLValue(this, i, 'badgeUserId');
 						const badgeId = this.getNodeParameter('badgeId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_badges_issue_badge', userid: badgeUserId, badgeid: badgeId });
 					} else if (operation === 'revoke') {
-						const badgeUserId = this.getNodeParameter('badgeUserId', i) as number;
+						const badgeUserId = getRLValue(this, i, 'badgeUserId');
 						const badgeId = this.getNodeParameter('badgeId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_badges_revoke_badge', userid: badgeUserId, badgeid: badgeId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
@@ -3029,22 +3978,22 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_competency_delete_competency', id: competencyId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getUserCompetencies') {
-						const compCourseId = this.getNodeParameter('compCourseId', i) as number;
-						const compUserId = this.getNodeParameter('compUserId', i) as number;
+						const compCourseId = getRLValue(this, i, 'compCourseId');
+						const compUserId = getRLValue(this, i, 'compUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_competency_get_user_competencies_in_course', courseid: compCourseId, userid: compUserId });
 					} else if (operation === 'getUserCompetency') {
 						const competencyId = this.getNodeParameter('competencyId', i) as number;
-						const compUserId = this.getNodeParameter('compUserId', i) as number;
+						const compUserId = getRLValue(this, i, 'compUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_competency_get_user_competency', competencyid: competencyId, userid: compUserId });
 					}
 				} else if (resource === 'quiz') {
 					if (operation === 'getByCourse') {
-						const quizCourseId = this.getNodeParameter('quizCourseId', i) as number;
+						const quizCourseId = getRLValue(this, i, 'quizCourseId');
 						const courseids = [quizCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_quiz_get_quizzes_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'startAttempt') {
 						const quizId = this.getNodeParameter('quizId', i) as number;
-						const quizUserId = this.getNodeParameter('quizUserId', i) as number;
+						const quizUserId = getRLValue(this, i, 'quizUserId');
 						const quizFinish = this.getNodeParameter('quizFinish', i) as boolean;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_quiz_start_attempt', quizid: quizId, userid: quizUserId, preflightdata: [], finish: quizFinish ? 1 : 0 });
 					} else if (operation === 'getAttemptData') {
@@ -3074,16 +4023,16 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_quiz_save_attempt', attemptid: attemptId, quizid: quizId, ...flattenObject({ data }) });
 					} else if (operation === 'getUserBestGrade') {
 						const quizId = this.getNodeParameter('quizId', i) as number;
-						const quizUserId = this.getNodeParameter('quizUserId', i) as number;
+						const quizUserId = getRLValue(this, i, 'quizUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_quiz_get_user_best_grade', quizid: quizId, userid: quizUserId });
 					} else if (operation === 'getUserAttempts') {
 						const quizId = this.getNodeParameter('quizId', i) as number;
-						const quizUserId = this.getNodeParameter('quizUserId', i) as number;
+						const quizUserId = getRLValue(this, i, 'quizUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_quiz_get_user_attempts', quizid: quizId, userid: quizUserId });
 					}
 				} else if (resource === 'assignment') {
 					if (operation === 'get') {
-						const assignCourseId = this.getNodeParameter('assignCourseId', i) as number;
+						const assignCourseId = getRLValue(this, i, 'assignCourseId');
 						const courseids = [assignCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_get_assignments', ...flattenObject({ courseids }) });
 					} else if (operation === 'getSubmissions') {
@@ -3092,7 +4041,7 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_get_submissions', ...flattenObject({ assignmentids: assignIds }) });
 					} else if (operation === 'getSubmissionStatus') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						const assignAttemptNumber = this.getNodeParameter('assignAttemptNumber', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_get_submission_status', assignid: assignId, userid: assignUserId, attemptnumber: assignAttemptNumber >= 0 ? assignAttemptNumber : -1 });
 					} else if (operation === 'saveSubmission') {
@@ -3107,7 +4056,7 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_submit_for_grading', assignmentid: assignId, acceptsubmissionstatement: true, ...flattenObject({ plugindata }) });
 					} else if (operation === 'saveGrade') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						const assignGrade = this.getNodeParameter('assignGrade', i) as number;
 						const assignAttemptNumber = this.getNodeParameter('assignAttemptNumber', i) as number;
 						const assignGradeDataJson = this.getNodeParameter('assignGradeDataJson', i) as string;
@@ -3119,32 +4068,32 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_get_grades', ...flattenObject({ assignmentids: assignIds }) });
 					} else if (operation === 'listParticipants') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignGroupId = this.getNodeParameter('assignGroupId', i) as number;
+						const assignGroupId = getRLValue(this, i, 'assignGroupId');
 						const assignFilter = this.getNodeParameter('assignFilter', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_list_participants', assignid: assignId, groupid: assignGroupId, filter: assignFilter });
 					} else if (operation === 'lock') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_lock_submission', assignmentid: assignId, userid: assignUserId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'unlock') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_unlock_submission', assignmentid: assignId, userid: assignUserId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'revertToDraft') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_revert_submissions_to_draft', assignmentid: assignId, userid: assignUserId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
 					} else if (operation === 'getUserFlags') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						const assignAttemptNumber = this.getNodeParameter('assignAttemptNumber', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_assign_get_user_flags', assignmentid: assignId, userid: assignUserId, attemptnumber: assignAttemptNumber >= 0 ? assignAttemptNumber : -1 });
 					} else if (operation === 'setUserFlags') {
 						const assignId = this.getNodeParameter('assignId', i) as number;
-						const assignUserId = this.getNodeParameter('assignUserId', i) as number;
+						const assignUserId = getRLValue(this, i, 'assignUserId');
 						const assignAttemptNumber = this.getNodeParameter('assignAttemptNumber', i) as number;
 						const assignFlagsJson = this.getNodeParameter('assignFlagsJson', i) as string;
 						const userflags = JSON.parse(assignFlagsJson);
@@ -3152,11 +4101,11 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'forum') {
 					if (operation === 'getByCourse') {
-						const forumCourseId = this.getNodeParameter('forumCourseId', i) as number;
+						const forumCourseId = getRLValue(this, i, 'forumCourseId');
 						const courseids = [forumCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_forum_get_forums_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'addDiscussion') {
-						const forumCourseId = this.getNodeParameter('forumCourseId', i) as number;
+						const forumCourseId = getRLValue(this, i, 'forumCourseId');
 						const forumId = this.getNodeParameter('forumId', i) as number;
 						const forumDiscussionTitle = this.getNodeParameter('forumDiscussionTitle', i) as string;
 						const forumDiscussionMessage = this.getNodeParameter('forumDiscussionMessage', i) as string;
@@ -3171,7 +4120,7 @@ export class Moodle implements INodeType {
 						const forumDiscussionId = this.getNodeParameter('forumDiscussionId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_forum_get_discussion_posts', forumid: forumId, discussionid: forumDiscussionId });
 					} else if (operation === 'canAddDiscussion') {
-						const forumCourseId = this.getNodeParameter('forumCourseId', i) as number;
+						const forumCourseId = getRLValue(this, i, 'forumCourseId');
 						const forumId = this.getNodeParameter('forumId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_forum_can_add_discussion', courseid: forumCourseId, forumid: forumId });
 					} else if (operation === 'setPinState') {
@@ -3185,16 +4134,16 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'glossary') {
 					if (operation === 'getByCourse') {
-						const glossaryCourseId = this.getNodeParameter('glossaryCourseId', i) as number;
+						const glossaryCourseId = getRLValue(this, i, 'glossaryCourseId');
 						const courseids = [glossaryCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_glossary_get_glossaries_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getEntriesByAuthor') {
 						const glossaryId = this.getNodeParameter('glossaryId', i) as number;
-						const glossaryAuthorId = this.getNodeParameter('glossaryAuthorId', i) as number;
+						const glossaryAuthorId = getRLValue(this, i, 'glossaryAuthorId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_glossary_get_entries_by_author', id: glossaryId, letter: '', field: 'author', sort: 'asc', from: 0, limit: 20, authorid: glossaryAuthorId });
 					} else if (operation === 'getEntriesByCategory') {
 						const glossaryId = this.getNodeParameter('glossaryId', i) as number;
-						const glossaryCategoryId = this.getNodeParameter('glossaryCategoryId', i) as number;
+						const glossaryCategoryId = getRLValue(this, i, 'glossaryCategoryId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_glossary_get_entries_by_category', id: glossaryId, categoryid: glossaryCategoryId, from: 0, limit: 20 });
 					} else if (operation === 'getEntriesByDate') {
 						const glossaryId = this.getNodeParameter('glossaryId', i) as number;
@@ -3222,7 +4171,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'lesson') {
 					if (operation === 'getByCourse') {
-						const lessonCourseId = this.getNodeParameter('lessonCourseId', i) as number;
+						const lessonCourseId = getRLValue(this, i, 'lessonCourseId');
 						const courseids = [lessonCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_get_lessons_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getPages') {
@@ -3235,59 +4184,59 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_get_page_data', lessonid: lessonId, pageid: lessonPageId, attempt: lessonAttempt });
 					} else if (operation === 'launchAttempt') {
 						const lessonId = this.getNodeParameter('lessonId', i) as number;
-						const lessonUserId = this.getNodeParameter('lessonUserId', i) as number;
+						const lessonUserId = getRLValue(this, i, 'lessonUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_launch_attempt', lessonid: lessonId, userid: lessonUserId });
 					} else if (operation === 'processPage') {
 						const lessonId = this.getNodeParameter('lessonId', i) as number;
 						const lessonPageId = this.getNodeParameter('lessonPageId', i) as number;
-						const lessonUserId = this.getNodeParameter('lessonUserId', i) as number;
+						const lessonUserId = getRLValue(this, i, 'lessonUserId');
 						const lessonAttempt = this.getNodeParameter('lessonAttempt', i) as number;
 						const lessonDataJson = this.getNodeParameter('lessonDataJson', i) as string;
 						const data = JSON.parse(lessonDataJson);
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_process_page', lessonid: lessonId, pageid: lessonPageId, userid: lessonUserId, attempt: lessonAttempt, ...flattenObject({ data }) });
 					} else if (operation === 'getUserAttempt') {
 						const lessonId = this.getNodeParameter('lessonId', i) as number;
-						const lessonUserId = this.getNodeParameter('lessonUserId', i) as number;
+						const lessonUserId = getRLValue(this, i, 'lessonUserId');
 						const lessonAttempt = this.getNodeParameter('lessonAttempt', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_get_user_attempt', lessonid: lessonId, userid: lessonUserId, attempt: lessonAttempt });
 					} else if (operation === 'getUserGrade') {
 						const lessonId = this.getNodeParameter('lessonId', i) as number;
-						const lessonUserId = this.getNodeParameter('lessonUserId', i) as number;
+						const lessonUserId = getRLValue(this, i, 'lessonUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_get_user_grade', lessonid: lessonId, userid: lessonUserId });
 					} else if (operation === 'getQuestionsAttempts') {
 						const lessonId = this.getNodeParameter('lessonId', i) as number;
-						const lessonUserId = this.getNodeParameter('lessonUserId', i) as number;
+						const lessonUserId = getRLValue(this, i, 'lessonUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_lesson_get_questions_attempts', lessonid: lessonId, userid: lessonUserId });
 					}
 				} else if (resource === 'scorm') {
 					if (operation === 'getByCourse') {
-						const scormCourseId = this.getNodeParameter('scormCourseId', i) as number;
+						const scormCourseId = getRLValue(this, i, 'scormCourseId');
 						const courseids = [scormCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_scorm_get_scorms_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getTracks') {
 						const scormId = this.getNodeParameter('scormId', i) as number;
-						const scormUserId = this.getNodeParameter('scormUserId', i) as number;
+						const scormUserId = getRLValue(this, i, 'scormUserId');
 						const scormAttempt = this.getNodeParameter('scormAttempt', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_scorm_get_scorm_tracks', scormid: scormId, userid: scormUserId, attempt: scormAttempt });
 					} else if (operation === 'insertTracks') {
 						const scormId = this.getNodeParameter('scormId', i) as number;
-						const scormUserId = this.getNodeParameter('scormUserId', i) as number;
+						const scormUserId = getRLValue(this, i, 'scormUserId');
 						const scormAttempt = this.getNodeParameter('scormAttempt', i) as number;
 						const scormTracksJson = this.getNodeParameter('scormTracksJson', i) as string;
 						const tracks = JSON.parse(scormTracksJson);
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_scorm_insert_scorm_tracks', scormid: scormId, userid: scormUserId, attempt: scormAttempt, ...flattenObject({ tracks }) });
 					} else if (operation === 'getAttemptCount') {
 						const scormId = this.getNodeParameter('scormId', i) as number;
-						const scormUserId = this.getNodeParameter('scormUserId', i) as number;
+						const scormUserId = getRLValue(this, i, 'scormUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_scorm_get_scorm_attempt_count', scormid: scormId, userid: scormUserId });
 					} else if (operation === 'getUserData') {
 						const scormId = this.getNodeParameter('scormId', i) as number;
-						const scormUserId = this.getNodeParameter('scormUserId', i) as number;
+						const scormUserId = getRLValue(this, i, 'scormUserId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_scorm_get_scorm_user_data', scormid: scormId, userid: scormUserId });
 					}
 				} else if (resource === 'workshop') {
 					if (operation === 'getByCourse') {
-						const workshopCourseId = this.getNodeParameter('workshopCourseId', i) as number;
+						const workshopCourseId = getRLValue(this, i, 'workshopCourseId');
 						const courseids = [workshopCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_workshop_get_workshops_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getPhases') {
@@ -3308,7 +4257,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'data') {
 					if (operation === 'getByCourse') {
-						const dataCourseId = this.getNodeParameter('dataCourseId', i) as number;
+						const dataCourseId = getRLValue(this, i, 'dataCourseId');
 						const courseids = [dataCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_data_get_databases_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getFields') {
@@ -3347,7 +4296,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'survey') {
 					if (operation === 'getByCourse') {
-						const surveyCourseId = this.getNodeParameter('surveyCourseId', i) as number;
+						const surveyCourseId = getRLValue(this, i, 'surveyCourseId');
 						const courseids = [surveyCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_survey_get_surveys_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getQuestions') {
@@ -3361,7 +4310,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'choice') {
 					if (operation === 'getByCourse') {
-						const choiceCourseId = this.getNodeParameter('choiceCourseId', i) as number;
+						const choiceCourseId = getRLValue(this, i, 'choiceCourseId');
 						const courseids = [choiceCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_choice_get_choices_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getResults') {
@@ -3382,7 +4331,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'feedback') {
 					if (operation === 'getByCourse') {
-						const feedbackCourseId = this.getNodeParameter('feedbackCourseId', i) as number;
+						const feedbackCourseId = getRLValue(this, i, 'feedbackCourseId');
 						const courseids = [feedbackCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_feedback_get_feedbacks_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getItems') {
@@ -3409,7 +4358,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'wiki') {
 					if (operation === 'getByCourse') {
-						const wikiCourseId = this.getNodeParameter('wikiCourseId', i) as number;
+						const wikiCourseId = getRLValue(this, i, 'wikiCourseId');
 						const courseids = [wikiCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_wiki_get_wikis_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getSubwikis') {
@@ -3439,7 +4388,7 @@ export class Moodle implements INodeType {
 					}
 				} else if (resource === 'chat') {
 					if (operation === 'getByCourse') {
-						const chatCourseId = this.getNodeParameter('chatCourseId', i) as number;
+						const chatCourseId = getRLValue(this, i, 'chatCourseId');
 						const courseids = [chatCourseId];
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_chat_get_chats_by_courses', ...flattenObject({ courseids }) });
 					} else if (operation === 'getUsers') {
@@ -3482,10 +4431,10 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', params);
 					}
 				} else if (resource === 'joomdle') {
-					const joomdleGroupId = this.getNodeParameter('joomdleGroupId', i) as number;
+					const joomdleGroupId = getRLValue(this, i, 'joomdleGroupId');
 					responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'joomdle_get_group_members', groupid: joomdleGroupId });
 				} else if (resource === 'book' || resource === 'page' || resource === 'url' || resource === 'resource' || resource === 'folder') {
-					const simpleCourseId = this.getNodeParameter('simpleCourseId', i) as number;
+					const simpleCourseId = getRLValue(this, i, 'simpleCourseId');
 					const courseids = [simpleCourseId];
 					const wsFunctions: IDataObject = {
 						book: 'mod_book_get_books_by_courses',

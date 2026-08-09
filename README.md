@@ -84,6 +84,54 @@ npm run dev
 npm run lint
 ```
 
+## Testing
+
+The project includes an integration test suite (vitest) that runs the node's
+`execute()` against a **real Moodle instance**.
+
+### Setup
+
+1. Copy `.env.example` to `.env` and fill in your credentials:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   | Variable | Description |
+   |---|---|
+   | `MOODLE_URL` | Base URL of your Moodle instance (no trailing slash) |
+   | `MOODLE_TOKEN` | Web Service token with permissions for the operations under test |
+
+   > `.env` is gitignored — never commit your token.
+
+2. Run the tests:
+
+   ```bash
+   npm test                 # run all tests
+   npm run test:integration # run only the integration suite
+   npm run test:watch       # watch mode
+   ```
+
+If `.env` is missing, the integration tests are **skipped** (they don't fail).
+
+### Covered resources
+
+- **System** — getSiteInfo, getAuthPlugins, getSiteFeatures
+- **User** — create, get, getByField, getPreferences, update, delete
+- **Course** — createCategory, create, get, getAll, getSections, update, delete, deleteCategory
+- **Enrollment** — enrol, getCourseUsers, getUserCourses, unenrol
+- **Group** — create, get, getCourseGroups, update, delete
+- **Cohort** — create, get, update, delete
+
+Each test creates unique test data and cleans it up afterwards (`afterAll`).
+
+### Requirements for a successful run
+
+The web service token user needs the capabilities to run the tested functions
+(`core_user_*`, `core_course_*`, `core_group_*`, `core_cohort_*`,
+`core_enrol_*`, `enrol_manual_*`) and the standard **student** role id (`5`) must
+exist for the enrollment tests.
+
 ## License
 
 [MIT](LICENSE)

@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-moodle-full",
-  "version": "0.2.6",
+  "version": "0.2.9",
   "description": "n8n community node for comprehensive Moodle LMS integration - all Web Service API routes",
   "keywords": [
     "n8n-community-node-package",
@@ -16,8 +16,7 @@
   "author": {
     "name": "Marco Stoduto"
   },
-  "contributors": [
-  ],
+  "contributors": [],
   "repository": {
     "type": "git",
     "url": "https://github.com/marcostoduto/n8n-nodes-moodle-full.git"
@@ -32,6 +31,9 @@
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials",
     "lintfix": "eslint nodes credentials --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run test/integration",
     "prepublishOnly": "npm run build && npm run lint"
   },
   "files": [
@@ -50,11 +52,13 @@
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "dotenv": "^17.4.2",
     "eslint": "^8.56.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.0",
     "n8n-workflow": "^1.25.0",
     "prettier": "^3.0.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "n8n-workflow": "*"
