@@ -3326,7 +3326,7 @@ export class Moodle implements INodeType {
 				this: ILoadOptionsFunctions,
 				_filter?: string,
 			): Promise<INodeListSearchResult> {
-				const users = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'id', 'criteria[0][value]': '0' });
+				const users = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'email', 'criteria[0][value]': '%' });
 				const results = ((users?.users || []) as any[]).map(u => ({
 					name: `${u.firstname || ''} ${u.lastname || ''}`.trim() || u.username || `User #${u.id}`,
 					value: String(u.id),
@@ -3435,7 +3435,8 @@ export class Moodle implements INodeType {
 						const fieldValue = this.getNodeParameter('fieldValue', i) as string;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users_by_field', field, 'values[0]': fieldValue });
 					} else if (operation === 'getAll') {
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'id', 'criteria[0][value]': '0' });
+						const res = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_user_get_users', 'criteria[0][key]': 'email', 'criteria[0][value]': '%' });
+						responseData = (res && (res as any).users) || [];
 					} else if (operation === 'update') {
 						const userId = getRLValue(this, i, 'userId');
 						const additionalFields = this.getNodeParameter('additionalFields', i) as IDataObject;

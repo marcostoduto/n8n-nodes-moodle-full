@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { credentials, isConfigured, uniqueSuffix } from './config';
-import { runNode } from '../utils/n8nMock';
+import { createMockContext, runNode } from '../utils/n8nMock';
+import { Moodle } from '../../nodes/Moodle/Moodle.node';
 
 const suffix = uniqueSuffix();
 const username = `n8ntest_${suffix}`;
@@ -51,6 +52,18 @@ describe.skipIf(!isConfigured)('User resource', () => {
 
 		expect(Array.isArray(result)).toBe(true);
 		expect(result[0]).toHaveProperty('username', username);
+	});
+
+	it('gets all users including the created user', async () => {
+		expect(createdUserId).toBeDefined();
+
+		const nodeInstance = new Moodle();
+		const context = createMockContext({ resource: 'user', operation: 'getAll' }, credentials!);
+		const result = await nodeInstance.execute.call(context);
+
+		const users = (result[0] || []).map((item) => item.json);
+		expect(users.length).toBeGreaterThan(0);
+		expect(users.some((u: any) => u.id === createdUserId)).toBe(true);
 	});
 
 	it('gets user preferences', async () => {
