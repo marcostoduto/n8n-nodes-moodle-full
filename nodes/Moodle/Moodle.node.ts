@@ -273,6 +273,8 @@ export class Moodle implements INodeType {
 					{ name: 'Delete Grouping', value: 'deleteGrouping', action: 'Delete a grouping', description: 'Delete a grouping' },
 					{ name: 'Assign Grouping', value: 'assignGrouping', action: 'Assign groups to grouping', description: 'Assign groups to grouping' },
 					{ name: 'Unassign Grouping', value: 'unassignGrouping', action: 'Unassign groups from grouping', description: 'Unassign groups from grouping' },
+					{ name: 'Get Groups in Grouping', value: 'getGroupingGroups', action: 'Get groups in a grouping', description: 'Get groups in a grouping' },
+					{ name: 'Get Grouping by Group', value: 'getGroupingOfGroup', action: 'Get the grouping of a group', description: 'Get the grouping of a group' },
 				],
 				default: 'get',
 			},
@@ -1504,7 +1506,7 @@ export class Moodle implements INodeType {
 						initType: 'number',
 					},
 				],
-				displayOptions: { show: { resource: ['group'], operation: ['get', 'update', 'delete', 'addMember', 'deleteMember', 'getMembers', 'assignGrouping', 'unassignGrouping'] } },
+				displayOptions: { show: { resource: ['group'], operation: ['get', 'update', 'delete', 'addMember', 'deleteMember', 'getMembers', 'assignGrouping', 'unassignGrouping', 'getGroupingOfGroup'] } },
 				description: 'Choose from the list, or specify an ID',
 			},
 			{
@@ -1532,7 +1534,7 @@ export class Moodle implements INodeType {
 						initType: 'number',
 					},
 				],
-				displayOptions: { show: { resource: ['group'], operation: ['create', 'getCourseGroups', 'createGrouping', 'getGroupings'] } },
+				displayOptions: { show: { resource: ['group'], operation: ['create', 'getCourseGroups', 'createGrouping', 'getGroupings', 'getGroupingOfGroup'] } },
 				description: 'Choose from the list, or specify an ID',
 			},
 			{
@@ -1577,7 +1579,7 @@ export class Moodle implements INodeType {
 						initType: 'number',
 					},
 				],
-				displayOptions: { show: { resource: ['group'], operation: ['updateGrouping', 'deleteGrouping', 'assignGrouping', 'unassignGrouping'] } },
+				displayOptions: { show: { resource: ['group'], operation: ['updateGrouping', 'deleteGrouping', 'assignGrouping', 'unassignGrouping', 'getGroupingGroups'] } },
 				description: 'Choose from the list, or specify an ID',
 			},
 			{
@@ -3827,6 +3829,20 @@ export class Moodle implements INodeType {
 						const groupId = getRLValue(this, i, 'groupId');
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_unassign_grouping', 'unassignments[0][groupingid]': groupingId, 'unassignments[0][groupid]': groupId });
 						if (responseData === null || responseData === undefined) { responseData = { success: true }; }
+					} else if (operation === 'getGroupingGroups') {
+						const groupingId = getRLValue(this, i, 'groupingId');
+						const groupings = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_groupings', 'groupingids[0]': groupingId, returngroups: 1 });
+						responseData = (Array.isArray(groupings) && groupings[0] && groupings[0].groups) || [];
+					} else if (operation === 'getGroupingOfGroup') {
+						const groupCourseId = getRLValue(this, i, 'groupCourseId');
+						const groupId = getRLValue(this, i, 'groupId');
+						const groupings = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_group_get_course_groupings', courseid: groupCourseId });
+						const groupingIds = ((groupings || []) as any[]).map((g: any) => g.id).filter((id: any) => id);
+						const reqParams: IDataObject = { wsfunction: 'core_group_get_groupings', returngroups: 1 };
+						groupingIds.forEach((id: any, index: number) => { reqParams[`groupingids[${index}]`] = id; });
+						const groupingDetails = await moodleApiRequest.call(this, 'POST', {}, reqParams);
+						const found = ((groupingDetails || []) as any[]).find((g: any) => (g.groups || []).some((grp: any) => Number(grp.id) === Number(groupId)));
+						responseData = found || { success: false, message: 'Group not assigned to any grouping' };
 					}
 				} else if (resource === 'calendar') {
 					if (operation === 'get') {
