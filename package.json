@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-moodle-full",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "description": "n8n community node for comprehensive Moodle LMS integration - all Web Service API routes",
   "keywords": [
     "n8n-community-node-package",

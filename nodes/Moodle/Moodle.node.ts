@@ -2934,6 +2934,30 @@ export class Moodle implements INodeType {
 				description: 'The feedback ID',
 			},
 			{
+				displayName: 'Group ID',
+				name: 'feedbackGroupId',
+				type: 'number',
+				default: 0,
+				description: 'Group id, 0 means that the function will determine the user group',
+				displayOptions: { show: { resource: ['feedback'], operation: ['getResponsesAnalysis'] } },
+			},
+			{
+				displayName: 'Page',
+				name: 'feedbackAnalysisPage',
+				type: 'number',
+				default: 0,
+				description: 'The page of records to return',
+				displayOptions: { show: { resource: ['feedback'], operation: ['getResponsesAnalysis'] } },
+			},
+			{
+				displayName: 'Per Page',
+				name: 'feedbackPerPage',
+				type: 'number',
+				default: 0,
+				description: 'The number of records to return per page',
+				displayOptions: { show: { resource: ['feedback'], operation: ['getResponsesAnalysis'] } },
+			},
+			{
 				displayName: 'Feedback Page',
 				name: 'feedbackPage',
 				type: 'number',
@@ -4370,7 +4394,14 @@ export class Moodle implements INodeType {
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_feedback_get_analysis', feedbackid: feedbackId });
 					} else if (operation === 'getResponsesAnalysis') {
 						const feedbackId = this.getNodeParameter('feedbackId', i) as number;
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_feedback_get_responses_analysis', feedbackid: feedbackId });
+						const groupId = this.getNodeParameter('feedbackGroupId', i, 0) as number;
+						const page = this.getNodeParameter('feedbackAnalysisPage', i, 0) as number;
+						const perPage = this.getNodeParameter('feedbackPerPage', i, 0) as number;
+						const reqParams: IDataObject = { wsfunction: 'mod_feedback_get_responses_analysis', feedbackid: feedbackId };
+						if (groupId) reqParams.groupid = groupId;
+						if (page) reqParams.page = page;
+						if (perPage) reqParams.perpage = perPage;
+						responseData = await moodleApiRequest.call(this, 'POST', {}, reqParams);
 					} else if (operation === 'getLastCompleted') {
 						const feedbackId = this.getNodeParameter('feedbackId', i) as number;
 						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'mod_feedback_get_last_completed', feedbackid: feedbackId });
