@@ -177,7 +177,7 @@ export class Moodle implements INodeType {
 					{ name: 'Get Self Enrol Instance', value: 'getSelfEnrolInstance', description: 'Get self enrolment instance', action: 'Get self enrolment instance' },
 					{ name: 'Get Enrolled With Capability', value: 'getEnrolledWithCapability', description: 'Get enrolled users with capability', action: 'Get enrolled with capability' },
 					{ name: 'Get Potential Users', value: 'getPotentialUsers', description: 'Get potential users', action: 'Get potential users' },
-					{ name: 'Get Enrolment', value: 'getEnrolment', description: 'Get enrolment by user and course', action: 'Get enrolment' },
+					{ name: 'Get Enrolment', value: 'getEnrolment', description: 'Get the enrolment of a user in a course', action: 'Get the enrolment of a user in a course' },
 				],
 				default: 'enrol',
 			},
@@ -3613,9 +3613,20 @@ export class Moodle implements INodeType {
 					} else if (operation === 'getEnrolment') {
 						const enrollUserId = getRLValue(this, i, 'enrollUserId');
 						const enrollCourseId = getRLValue(this, i, 'enrollCourseId');
-						responseData = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_users_courses', userid: enrollUserId });
-						responseData = (responseData as any[] || []).find((c: any) => c.id === enrollCourseId) || null;
-						if (responseData === null || responseData === undefined) { responseData = { success: false, message: 'Enrolment not found' }; }
+						const userCourses = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_users_courses', userid: enrollUserId });
+						const course = ((userCourses as any[]) || []).find((c: any) => Number(c.id) === Number(enrollCourseId));
+						if (!course) {
+							responseData = { userid: enrollUserId, courseid: enrollCourseId, enrolled: false };
+						} else {
+							const methods = await moodleApiRequest.call(this, 'POST', { wsfunction: 'core_enrol_get_course_enrolment_methods', courseid: enrollCourseId });
+							responseData = {
+								userid: enrollUserId,
+								courseid: enrollCourseId,
+								enrolled: true,
+								course,
+								enrolmentmethods: methods || [],
+							};
+						}
 					}
 				} else if (resource === 'grade') {
 					if (operation === 'getUserCourseGrades') {
