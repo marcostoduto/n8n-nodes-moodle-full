@@ -4,10 +4,32 @@ import {
 	IHttpRequestOptions,
 	INode,
 	INodeExecutionData,
+	INodeProperties,
 	INodePropertyValue,
 } from 'n8n-workflow';
 
 import { Moodle } from '../../nodes/Moodle/Moodle.node';
+
+type DisplayRules = Record<string, unknown[] | undefined>;
+
+function currentValue(name: string, params: Record<string, unknown>, properties: INodeProperties[]): unknown {
+	if (name in params) return params[name];
+	return properties.find((p) => p.name === name)?.default;
+}
+
+/** Evaluates a property's `displayOptions` (show/hide) the way the n8n editor does. */
+export function isDisplayed(prop: INodeProperties, params: Record<string, unknown>): boolean {
+	const properties = new Moodle().description.properties;
+	const show = prop.displayOptions?.show as DisplayRules | undefined;
+	const hide = prop.displayOptions?.hide as DisplayRules | undefined;
+	for (const [key, values] of Object.entries(show ?? {})) {
+		if (!values?.includes(currentValue(key, params, properties))) return false;
+	}
+	for (const [key, values] of Object.entries(hide ?? {})) {
+		if (values?.includes(currentValue(key, params, properties))) return false;
+	}
+	return true;
+}
 
 export interface MockCredentials {
 	url: string;
@@ -19,22 +41,39 @@ export interface MockCredentials {
  * `execute()` run against a real Moodle instance. Parameters not supplied
  * explicitly fall back to the defaults declared in the node description.
  */
+export interface MockContextState {
+	/** Every value the node passed to `helpers.returnJsonArray`, in call order. */
+	emitted: unknown[];
+	/** Every HTTP request the node sent, in call order. */
+	requests: IHttpRequestOptions[];
+}
+
+export type MockHttpHandler = (options: IHttpRequestOptions) => Promise<any>;
+
 export function createMockContext(
 	params: Record<string, unknown>,
 	credentials: MockCredentials,
+	state: MockContextState = { emitted: [], requests: [] },
+	httpHandler?: MockHttpHandler,
+	options: { continueOnFail?: boolean; inputItems?: INodeExecutionData[] } = {},
 ): IExecuteFunctions {
 	const nodeInstance = new Moodle();
 	const properties = nodeInstance.description.properties;
 
 	const context = {
 		getMode: () => 'manual' as const,
-		getInputData: (): INodeExecutionData[] => [{ json: {} }],
-		getNodeParameter: (name: string, _itemIndex: number): any => {
+		getInputData: (): INodeExecutionData[] => options.inputItems ?? [{ json: {} }],
+		getNodeParameter: (name: string, _itemIndex: number, fallback?: unknown): any => {
 			if (name in params) {
-				return params[name];
+				// Real n8n hands out copies, so mutations by the node never leak back.
+				return structuredClone(params[name]);
 			}
-			const prop = properties.find((p) => p.name === name);
-			return prop ? (prop.default as INodePropertyValue) : undefined;
+			// Like n8n, parameters hidden by `displayOptions` are not available: reading
+			// one without a fallback throws instead of silently returning its default.
+			const prop = properties.find((p) => p.name === name && isDisplayed(p, params));
+			if (prop) return structuredClone(prop.default as INodePropertyValue);
+			if (fallback !== undefined) return fallback;
+			throw new Error(`Could not get parameter "${name}"`);
 		},
 		getCredentials: async (): Promise<MockCredentials> => credentials,
 		getNode: (): INode => ({
@@ -45,9 +84,11 @@ export function createMockContext(
 			position: [0, 0],
 			parameters: {},
 		}),
-		continueOnFail: () => false,
+		continueOnFail: () => options.continueOnFail ?? false,
 		helpers: {
 			httpRequest: async (options: IHttpRequestOptions): Promise<any> => {
+				state.requests.push(options);
+				if (httpHandler) return httpHandler(options);
 				const url = options.url ?? '';
 				const method = options.method ?? 'GET';
 				const headers: Record<string, string> = {
@@ -81,6 +122,7 @@ export function createMockContext(
 				return text;
 			},
 			returnJsonArray: (jsonData: IDataObject | IDataObject[]): INodeExecutionData[] => {
+				state.emitted.push(jsonData);
 				const arr = Array.isArray(jsonData) ? jsonData : [jsonData];
 				return arr.map((j) => ({ json: j }));
 			},
@@ -102,15 +144,29 @@ export function createMockContext(
 
 /**
  * Runs the Moodle node's `execute()` with the given parameters against the real
- * Moodle instance and returns the first output item's `json` payload.
+ * Moodle instance and returns the response the node emitted for the (single)
+ * input item, before n8n splits arrays into separate output items.
  */
 export async function runNode(
 	params: Record<string, unknown>,
 	credentials: MockCredentials,
 ): Promise<any> {
+	const state: MockContextState = { emitted: [], requests: [] };
+	const nodeInstance = new Moodle();
+	const context = createMockContext(params, credentials, state);
+	await nodeInstance.execute.call(context);
+	return state.emitted[0];
+}
+
+/**
+ * Runs the node and returns the n8n output items (one array entry per item).
+ */
+export async function runNodeItems(
+	params: Record<string, unknown>,
+	credentials: MockCredentials,
+): Promise<INodeExecutionData[]> {
 	const nodeInstance = new Moodle();
 	const context = createMockContext(params, credentials);
 	const result = await nodeInstance.execute.call(context);
-	const output = result[0]?.[0];
-	return (output as INodeExecutionData | undefined)?.json as IDataObject | undefined;
+	return result[0] ?? [];
 }

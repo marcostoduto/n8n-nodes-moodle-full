@@ -7,7 +7,7 @@ import {
 export class MoodleApi implements ICredentialType {
     name = 'moodleApi';
     displayName = 'Moodle API';
-    documentationUrl = 'https://github.com/threatroute66/n8n-nodes-moodle';
+    documentationUrl = 'https://github.com/marcostoduto/n8n-nodes-moodle-full';
     properties: INodeProperties[] = [
         {
             displayName: 'Moodle URL',
@@ -33,7 +33,7 @@ export class MoodleApi implements ICredentialType {
 
     test: ICredentialTestRequest = {
         request: {
-            baseURL: '={{$credentials.url}}',
+            baseURL: '={{$credentials.url.replace(/\\/+$/, "")}}',
             url: '/webservice/rest/server.php',
             method: 'POST',
             headers: {
@@ -45,5 +45,33 @@ export class MoodleApi implements ICredentialType {
                 moodlewsrestformat: 'json',
             },
         },
+        // Moodle answers authentication problems with HTTP 200 and an error body,
+        // so the credential test has to inspect the body to detect them.
+        rules: [
+            {
+                type: 'responseSuccessBody',
+                properties: {
+                    key: 'errorcode',
+                    value: 'invalidtoken',
+                    message: 'Invalid token: check the Web Service Token',
+                },
+            },
+            {
+                type: 'responseSuccessBody',
+                properties: {
+                    key: 'errorcode',
+                    value: 'accessexception',
+                    message: 'Access denied: check that the token user and the external service are enabled',
+                },
+            },
+            {
+                type: 'responseSuccessBody',
+                properties: {
+                    key: 'errorcode',
+                    value: 'enablewsdescription',
+                    message: 'Web services are disabled on this Moodle site',
+                },
+            },
+        ],
     };
 }

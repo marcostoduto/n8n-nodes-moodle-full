@@ -12,6 +12,63 @@ import {
     NodeApiError,
 } from 'n8n-workflow';
 
+/**
+ * Flattens an arbitrarily nested object into the bracket notation expected by the
+ * Moodle REST server (`users[0][customfields][1][value]=...`).
+ *
+ * - `undefined` and `null` values are dropped, so optional parameters can be passed
+ *   as `undefined` without sending the literal string "undefined" to Moodle.
+ * - Booleans are sent as `1` / `0`, the only boolean encoding every Moodle
+ *   version accepts.
+ * - Arrays and objects at any depth (including the top level) are expanded.
+ */
+export function encodeMoodleParams(params: IDataObject, prefix = ''): Array<[string, string]> {
+    const pairs: Array<[string, string]> = [];
+    const add = (key: string, value: unknown) => {
+        if (value === undefined || value === null) {
+            return;
+        }
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => add(`${key}[${index}]`, item));
+            return;
+        }
+        if (value instanceof Date) {
+            pairs.push([key, String(Math.floor(value.getTime() / 1000))]);
+            return;
+        }
+        if (typeof value === 'object') {
+            for (const [childKey, childValue] of Object.entries(value as IDataObject)) {
+                add(`${key}[${childKey}]`, childValue);
+            }
+            return;
+        }
+        if (typeof value === 'boolean') {
+            pairs.push([key, value ? '1' : '0']);
+            return;
+        }
+        pairs.push([key, String(value)]);
+    };
+    for (const [key, value] of Object.entries(params)) {
+        add(prefix ? `${prefix}[${key}]` : key, value);
+    }
+    return pairs;
+}
+
+export function buildMoodleRequestBody(token: string, body: IDataObject = {}, qs: IDataObject = {}): string {
+    const formData = new URLSearchParams();
+    const pairs = encodeMoodleParams({
+        ...qs,
+        ...body,
+    });
+    formData.append('wstoken', token);
+    formData.append('moodlewsrestformat', 'json');
+    for (const [key, value] of pairs) {
+        if (key === 'wstoken' || key === 'moodlewsrestformat') continue;
+        formData.append(key, value);
+    }
+    return formData.toString();
+}
+
 export async function moodleApiRequest(
     this: IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions,
     method: IHttpRequestMethods,
@@ -19,25 +76,13 @@ export async function moodleApiRequest(
     qs: IDataObject = {},
 ): Promise<any> {
     const credentials = await this.getCredentials('moodleApi');
-    const url = credentials.url as string;
-    const token = credentials.token as string;
+    const url = String(credentials.url ?? '').trim();
+    const token = String(credentials.token ?? '').trim();
 
-    const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    const cleanUrl = url.replace(/\/+$/, '');
     const fullUrl = `${cleanUrl}/webservice/rest/server.php`;
 
-    const allParams: IDataObject = {
-        wstoken: token,
-        moodlewsrestformat: 'json',
-        ...qs,
-        ...body,
-    };
-
-    const formData = new URLSearchParams();
-    for (const [key, value] of Object.entries(allParams)) {
-        formData.append(key, String(value));
-    }
-
-    const bodyString = formData.toString();
+    const bodyString = buildMoodleRequestBody(token, body, qs);
 
     const options: IHttpRequestOptions = {
         method,
@@ -47,17 +92,21 @@ export async function moodleApiRequest(
         headers: {
             'User-Agent': 'n8n-moodle-node/1.0.0',
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': bodyString.length.toString(),
+            'Accept': 'application/json',
         },
         json: false,
     };
-
     try {
         const response = await this.helpers.httpRequest(options);
 
         let parsedResponse;
         try {
-            parsedResponse = typeof response === 'string' ? JSON.parse(response) : response;
+            if (typeof response === 'string') {
+                // Moodle answers void functions with an empty body or the literal "null".
+                parsedResponse = response.trim() === '' ? null : JSON.parse(response);
+            } else {
+                parsedResponse = response;
+            }
         } catch (parseError) {
             if (typeof response === 'string' && response.includes('is already used for another')) {
                 throw new NodeApiError(this.getNode(), {
@@ -68,7 +117,7 @@ export async function moodleApiRequest(
 
             throw new NodeApiError(this.getNode(), {
                 message: 'Failed to parse Moodle API response',
-                description: `Response was not valid JSON: ${response}`,
+                description: `Response was not valid JSON (check the Moodle URL and that the REST protocol is enabled): ${String(response).slice(0, 500)}`,
             });
         }
 

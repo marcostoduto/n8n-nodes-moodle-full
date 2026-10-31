@@ -9,7 +9,6 @@ const courseShortname = `n8nenrolcourse_${suffix}`;
 
 let testUserId: number | undefined;
 let testCourseId: number | undefined;
-let manualInstanceId: number | undefined;
 
 async function createTestUser(): Promise<number> {
 	const result = await runNode(
@@ -110,9 +109,11 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 		expect(found).toBeDefined();
 	});
 
-	it('resolves the manual enrolment instance id', async () => {
+	it('lists the course enrolment methods', async () => {
 		expect(testCourseId).toBeDefined();
 
+		// Moodle only lists methods that expose public info (self, guest...); the manual
+		// method is never returned, so only the shape of the response is checked.
 		const result = await runNode(
 			{
 				resource: 'course',
@@ -123,15 +124,11 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 		);
 
 		expect(Array.isArray(result)).toBe(true);
-		const manual = (result as any[]).find((m) => m.type === 'manual');
-		expect(manual).toBeDefined();
-		manualInstanceId = Number(manual.id);
 	});
 
 	it('unenrols the user from the course', async () => {
 		expect(testUserId).toBeDefined();
 		expect(testCourseId).toBeDefined();
-		expect(manualInstanceId).toBeDefined();
 
 		const result = await runNode(
 			{
@@ -139,11 +136,22 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 				operation: 'unenrol',
 				enrollUserId: testUserId,
 				enrollCourseId: testCourseId,
-				instanceId: manualInstanceId,
 			},
 			credentials!,
 		);
 
+		expect(result).toHaveProperty('success', true);
+
+		const enrolment = await runNode(
+			{
+				resource: 'enrollment',
+				operation: 'getEnrolment',
+				enrollUserId: testUserId,
+				enrollCourseId: testCourseId,
+			},
+			credentials!,
+		);
+		expect(enrolment).toHaveProperty('enrolled', false);
 		expect(result).toHaveProperty('success', true);
 	});
 });
