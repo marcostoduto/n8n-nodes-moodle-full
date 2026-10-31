@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { credentials, isConfigured, uniqueSuffix } from './config';
-import { runNode } from '../utils/n8nMock';
+import { runNode, runNodeItems } from '../utils/n8nMock';
 
 const suffix = uniqueSuffix();
 const shortname = `n8ncourse_${suffix}`;
@@ -12,10 +12,7 @@ let createdCategoryId: number | undefined;
 let categoryIdForCourse: number | undefined;
 
 async function pickDefaultCategory(): Promise<number> {
-	const categories = await runNode(
-		{ resource: 'course', operation: 'getCategories' },
-		credentials!,
-	);
+	const categories = await runNodeItems({ resource: 'course', operation: 'getCategories' }, credentials!);
 	expect(Array.isArray(categories)).toBe(true);
 	expect(categories.length).toBeGreaterThan(0);
 	return Number(categories[0].id);
@@ -23,7 +20,7 @@ async function pickDefaultCategory(): Promise<number> {
 
 describe.skipIf(!isConfigured)('Course resource', () => {
 	it('creates a category to host the test course', async () => {
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'course',
 				operation: 'createCategory',
@@ -46,7 +43,7 @@ describe.skipIf(!isConfigured)('Course resource', () => {
 			categoryIdForCourse = await pickDefaultCategory();
 		}
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'course',
 				operation: 'create',
@@ -66,10 +63,7 @@ describe.skipIf(!isConfigured)('Course resource', () => {
 	it('gets the created course by id', async () => {
 		expect(createdCourseId).toBeDefined();
 
-		const result = await runNode(
-			{ resource: 'course', operation: 'get', courseId: createdCourseId },
-			credentials!,
-		);
+		const result = await runNode({ resource: 'course', operation: 'get', courseId: createdCourseId }, credentials!);
 
 		expect(result).toHaveProperty('id', createdCourseId);
 		expect(result).toHaveProperty('shortname', shortname);
@@ -79,10 +73,7 @@ describe.skipIf(!isConfigured)('Course resource', () => {
 	it('gets all courses and finds the created one', async () => {
 		expect(createdCourseId).toBeDefined();
 
-		const result = await runNode(
-			{ resource: 'course', operation: 'getAll' },
-			credentials!,
-		);
+		const result = await runNodeItems({ resource: 'course', operation: 'getAll' }, credentials!);
 
 		expect(Array.isArray(result)).toBe(true);
 		const found = (result as any[]).find((c) => Number(c.id) === createdCourseId);
@@ -92,7 +83,7 @@ describe.skipIf(!isConfigured)('Course resource', () => {
 	it('gets the course sections', async () => {
 		expect(createdCourseId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{ resource: 'course', operation: 'getSections', courseId: createdCourseId },
 			credentials!,
 		);
@@ -113,10 +104,7 @@ describe.skipIf(!isConfigured)('Course resource', () => {
 			credentials!,
 		);
 
-		const result = await runNode(
-			{ resource: 'course', operation: 'get', courseId: createdCourseId },
-			credentials!,
-		);
+		const result = await runNode({ resource: 'course', operation: 'get', courseId: createdCourseId }, credentials!);
 		expect(result).toHaveProperty('summary', 'Updated by n8n integration tests');
 	});
 
@@ -148,10 +136,7 @@ afterAll(async () => {
 
 	if (createdCourseId !== undefined) {
 		try {
-			await runNode(
-				{ resource: 'course', operation: 'delete', courseId: createdCourseId },
-				credentials!,
-			);
+			await runNode({ resource: 'course', operation: 'delete', courseId: createdCourseId }, credentials!);
 		} catch {
 			// ignore cleanup errors
 		}

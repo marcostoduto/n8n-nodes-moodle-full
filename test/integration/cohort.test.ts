@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { credentials, isConfigured, uniqueSuffix } from './config';
-import { runNode } from '../utils/n8nMock';
+import { runNode, runNodeItems } from '../utils/n8nMock';
 
 const suffix = uniqueSuffix();
 const cohortName = `N8N Cohort ${suffix}`;
@@ -11,13 +11,12 @@ let createdCohortId: number | undefined;
 
 describe.skipIf(!isConfigured)('Cohort resource', () => {
 	it('creates a cohort in the system context', async () => {
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'cohort',
 				operation: 'create',
 				cohortName,
 				cohortIdNumber,
-				cohortContextId: 1,
 				cohortDescription: 'Created by n8n integration tests',
 			},
 			credentials!,
@@ -31,7 +30,7 @@ describe.skipIf(!isConfigured)('Cohort resource', () => {
 	it('gets the created cohort by id', async () => {
 		expect(createdCohortId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{ resource: 'cohort', operation: 'get', cohortId: createdCohortId },
 			credentials!,
 		);
@@ -53,13 +52,12 @@ describe.skipIf(!isConfigured)('Cohort resource', () => {
 				cohortId: createdCohortId,
 				cohortName: updatedName,
 				cohortIdNumber,
-				cohortContextId: 1,
 				cohortDescription: 'Updated by n8n integration tests',
 			},
 			credentials!,
 		);
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{ resource: 'cohort', operation: 'get', cohortId: createdCohortId },
 			credentials!,
 		);
@@ -83,10 +81,7 @@ afterAll(async () => {
 
 	if (createdCohortId !== undefined) {
 		try {
-			await runNode(
-				{ resource: 'cohort', operation: 'delete', cohortId: createdCohortId },
-				credentials!,
-			);
+			await runNode({ resource: 'cohort', operation: 'delete', cohortId: createdCohortId }, credentials!);
 		} catch {
 			// ignore cleanup errors
 		}

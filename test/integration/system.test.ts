@@ -5,10 +5,7 @@ import { runNode } from '../utils/n8nMock';
 
 describe.skipIf(!isConfigured)('System resource', () => {
 	it('getSiteInfo returns the connected Moodle site', async () => {
-		const result = await runNode(
-			{ resource: 'system', operation: 'getSiteInfo' },
-			credentials!,
-		);
+		const result = await runNode({ resource: 'system', operation: 'getSiteInfo' }, credentials!);
 
 		expect(result).toBeDefined();
 		expect(result).toHaveProperty('sitename');
@@ -26,10 +23,7 @@ describe.skipIf(!isConfigured)('System resource', () => {
 	});
 
 	it('getSiteFeatures does not throw', async () => {
-		const result = await runNode(
-			{ resource: 'system', operation: 'getSiteFeatures' },
-			credentials!,
-		);
+		const result = await runNode({ resource: 'system', operation: 'getSiteFeatures' }, credentials!);
 
 		expect(result).toBeDefined();
 	});

@@ -1,11 +1,4 @@
-import {
-	IExecuteFunctions,
-	IDataObject,
-	IHttpRequestOptions,
-	INode,
-	INodeExecutionData,
-	INodePropertyValue,
-} from 'n8n-workflow';
+import { IExecuteFunctions, IDataObject, IHttpRequestOptions, INode, INodeExecutionData } from 'n8n-workflow';
 
 import { Moodle } from '../../nodes/Moodle/Moodle.node';
 
@@ -19,22 +12,22 @@ export interface MockCredentials {
  * `execute()` run against a real Moodle instance. Parameters not supplied
  * explicitly fall back to the defaults declared in the node description.
  */
-export function createMockContext(
-	params: Record<string, unknown>,
-	credentials: MockCredentials,
-): IExecuteFunctions {
+export function createMockContext(params: Record<string, unknown>, credentials: MockCredentials): IExecuteFunctions {
 	const nodeInstance = new Moodle();
 	const properties = nodeInstance.description.properties;
 
 	const context = {
 		getMode: () => 'manual' as const,
 		getInputData: (): INodeExecutionData[] => [{ json: {} }],
-		getNodeParameter: (name: string, _itemIndex: number): any => {
+		getNodeParameter: (name: string, _itemIndex: number, fallback?: unknown): any => {
 			if (name in params) {
 				return params[name];
 			}
+			if (fallback !== undefined) {
+				return fallback;
+			}
 			const prop = properties.find((p) => p.name === name);
-			return prop ? (prop.default as INodePropertyValue) : undefined;
+			return prop ? (prop.default as any) : undefined;
 		},
 		getCredentials: async (): Promise<MockCredentials> => credentials,
 		getNode: (): INode => ({
@@ -84,10 +77,7 @@ export function createMockContext(
 				const arr = Array.isArray(jsonData) ? jsonData : [jsonData];
 				return arr.map((j) => ({ json: j }));
 			},
-			constructExecutionMetaData: (
-				inputData: INodeExecutionData[],
-				options: { itemData: { item: number } },
-			) =>
+			constructExecutionMetaData: (inputData: INodeExecutionData[], options: { itemData: { item: number } }) =>
 				inputData.map((d) => ({
 					...d,
 					pairedItem: { item: options.itemData.item },
@@ -102,12 +92,20 @@ export function createMockContext(
 
 /**
  * Runs the Moodle node's `execute()` with the given parameters against the real
+ * Moodle instance and returns the `json` payload of every output item.
+ */
+export async function runNodeItems(params: Record<string, unknown>, credentials: MockCredentials): Promise<any[]> {
+	const nodeInstance = new Moodle();
+	const context = createMockContext(params, credentials);
+	const result = await nodeInstance.execute.call(context);
+	return (result[0] || []).map((item) => item.json);
+}
+
+/**
+ * Runs the Moodle node's `execute()` with the given parameters against the real
  * Moodle instance and returns the first output item's `json` payload.
  */
-export async function runNode(
-	params: Record<string, unknown>,
-	credentials: MockCredentials,
-): Promise<any> {
+export async function runNode(params: Record<string, unknown>, credentials: MockCredentials): Promise<any> {
 	const nodeInstance = new Moodle();
 	const context = createMockContext(params, credentials);
 	const result = await nodeInstance.execute.call(context);

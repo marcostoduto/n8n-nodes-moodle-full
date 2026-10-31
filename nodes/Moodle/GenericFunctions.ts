@@ -1,136 +1,171 @@
 import {
-    IExecuteFunctions,
-    IHookFunctions,
-    ILoadOptionsFunctions,
-    IWebhookFunctions,
+	IDataObject,
+	IExecuteFunctions,
+	IHookFunctions,
+	IHttpRequestMethods,
+	IHttpRequestOptions,
+	ILoadOptionsFunctions,
+	IWebhookFunctions,
+	JsonObject,
+	NodeApiError,
 } from 'n8n-workflow';
 
-import {
-    IDataObject,
-    IHttpRequestOptions,
-    IHttpRequestMethods,
-    NodeApiError,
-} from 'n8n-workflow';
+type MoodleContext = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions;
 
-export async function moodleApiRequest(
-    this: IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions | IWebhookFunctions,
-    method: IHttpRequestMethods,
-    body: IDataObject = {},
-    qs: IDataObject = {},
-): Promise<any> {
-    const credentials = await this.getCredentials('moodleApi');
-    const url = credentials.url as string;
-    const token = credentials.token as string;
+/**
+ * Serializes a (possibly nested) parameter object into the flat PHP-style
+ * form encoding expected by Moodle's REST server, e.g.
+ * `{ users: [{ id: 1 }] }` -> `users[0][id]=1`.
+ *
+ * - `undefined` / `null` values are skipped, so optional parameters can be
+ *   passed without sending the literal string "undefined" (which Moodle rejects).
+ * - Booleans are sent as 1/0 (Moodle rejects "true"/"false" for PARAM_BOOL).
+ * - Empty arrays/objects produce no keys (Moodle then applies its defaults).
+ */
+export function serializeMoodleParams(params: IDataObject): URLSearchParams {
+	const form = new URLSearchParams();
 
-    const cleanUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-    const fullUrl = `${cleanUrl}/webservice/rest/server.php`;
+	const append = (key: string, value: unknown): void => {
+		if (value === undefined || value === null) {
+			return;
+		}
+		if (typeof value === 'boolean') {
+			form.append(key, value ? '1' : '0');
+			return;
+		}
+		if (value instanceof Date) {
+			form.append(key, String(Math.floor(value.getTime() / 1000)));
+			return;
+		}
+		if (Array.isArray(value)) {
+			value.forEach((item, index) => append(`${key}[${index}]`, item));
+			return;
+		}
+		if (typeof value === 'object') {
+			for (const [childKey, childValue] of Object.entries(value as IDataObject)) {
+				append(`${key}[${childKey}]`, childValue);
+			}
+			return;
+		}
+		if (typeof value === 'number' && !Number.isFinite(value)) {
+			return;
+		}
+		form.append(key, String(value));
+	};
 
-    const allParams: IDataObject = {
-        wstoken: token,
-        moodlewsrestformat: 'json',
-        ...qs,
-        ...body,
-    };
-
-    const formData = new URLSearchParams();
-    for (const [key, value] of Object.entries(allParams)) {
-        formData.append(key, String(value));
-    }
-
-    const bodyString = formData.toString();
-
-    const options: IHttpRequestOptions = {
-        method,
-        url: fullUrl,
-        body: bodyString,
-        timeout: 30000,
-        headers: {
-            'User-Agent': 'n8n-moodle-node/1.0.0',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': bodyString.length.toString(),
-        },
-        json: false,
-    };
-
-    try {
-        const response = await this.helpers.httpRequest(options);
-
-        let parsedResponse;
-        try {
-            parsedResponse = typeof response === 'string' ? JSON.parse(response) : response;
-        } catch (parseError) {
-            if (typeof response === 'string' && response.includes('is already used for another')) {
-                throw new NodeApiError(this.getNode(), {
-                    message: 'Moodle API Error',
-                    description: response,
-                });
-            }
-
-            throw new NodeApiError(this.getNode(), {
-                message: 'Failed to parse Moodle API response',
-                description: `Response was not valid JSON: ${response}`,
-            });
-        }
-
-        if (parsedResponse === null || parsedResponse === undefined) {
-            return parsedResponse;
-        }
-
-        if (parsedResponse && typeof parsedResponse === 'object' && parsedResponse.exception) {
-            throw new NodeApiError(this.getNode(), {
-                message: parsedResponse.message || 'Moodle API Error',
-                description: `${parsedResponse.debuginfo || ''}\nErrorcode: ${parsedResponse.errorcode || 'Unknown'}`,
-                httpCode: parsedResponse.httpCode,
-            });
-        }
-
-        return parsedResponse;
-    } catch (error: any) {
-        if (error instanceof NodeApiError) {
-            throw error;
-        }
-
-        let errorMessage = 'Unknown error occurred';
-        let errorDescription = '';
-
-        if (error.code) {
-            switch (error.code) {
-                case 'ECONNREFUSED':
-                    errorMessage = 'Connection refused - Moodle server may be offline or unreachable';
-                    errorDescription = `Unable to connect to ${fullUrl}`;
-                    break;
-                case 'ENOTFOUND':
-                    errorMessage = 'Host not found - Invalid URL or DNS issue';
-                    errorDescription = `Cannot resolve hostname: ${fullUrl}`;
-                    break;
-                case 'ETIMEDOUT':
-                    errorMessage = 'Connection timeout - Server is not responding';
-                    errorDescription = 'Request timed out after 30 seconds';
-                    break;
-                default:
-                    errorMessage = error.message || errorMessage;
-                    errorDescription = `Error code: ${error.code}`;
-            }
-        } else if (error.response) {
-            errorMessage = `HTTP ${error.response.status}: ${error.response.statusText}`;
-            errorDescription = `Response: ${JSON.stringify(error.response.data, null, 2)}`;
-        } else {
-            errorMessage = error.message || errorMessage;
-        }
-
-        throw new NodeApiError(this.getNode(), {
-            message: errorMessage,
-            description: errorDescription,
-            httpCode: error.response?.status,
-        });
-    }
+	for (const [key, value] of Object.entries(params)) {
+		append(key, value);
+	}
+	return form;
 }
 
-export async function moodleApiRequestAllItems(
-    this: IExecuteFunctions | ILoadOptionsFunctions,
-    method: IHttpRequestMethods,
-    body: IDataObject = {},
-    qs: IDataObject = {},
+function getErrorCode(error: any): string | undefined {
+	return error?.code ?? error?.cause?.code;
+}
+
+export async function moodleApiRequest(
+	this: MoodleContext,
+	method: IHttpRequestMethods,
+	body: IDataObject = {},
+	qs: IDataObject = {},
 ): Promise<any> {
-    return moodleApiRequest.call(this, method, body, qs);
+	const credentials = await this.getCredentials('moodleApi');
+	const url = String(credentials.url ?? '').trim();
+	const token = String(credentials.token ?? '').trim();
+
+	const cleanUrl = url.replace(/\/+$/, '');
+	const fullUrl = `${cleanUrl}/webservice/rest/server.php`;
+
+	const formData = serializeMoodleParams({
+		...qs,
+		...body,
+		wstoken: token,
+		moodlewsrestformat: 'json',
+	});
+	const wsfunction = formData.get('wsfunction') ?? '';
+
+	const options: IHttpRequestOptions = {
+		method,
+		url: fullUrl,
+		body: formData.toString(),
+		timeout: 60000,
+		headers: {
+			'User-Agent': 'n8n-nodes-moodle-full',
+			'Content-Type': 'application/x-www-form-urlencoded',
+			Accept: 'application/json',
+		},
+		json: false,
+	};
+
+	let response: unknown;
+	try {
+		response = await this.helpers.httpRequest(options);
+	} catch (error: any) {
+		const code = getErrorCode(error);
+		let message = error?.message || 'Unknown error occurred';
+		let description = '';
+		switch (code) {
+			case 'ECONNREFUSED':
+				message = 'Connection refused - Moodle server may be offline or unreachable';
+				description = `Unable to connect to ${cleanUrl}`;
+				break;
+			case 'ENOTFOUND':
+				message = 'Host not found - check the Moodle URL in the credentials';
+				description = `Cannot resolve hostname of ${cleanUrl}`;
+				break;
+			case 'ETIMEDOUT':
+			case 'ECONNABORTED':
+				message = 'Connection timeout - Moodle server is not responding';
+				break;
+			default:
+				break;
+		}
+		const status = error?.response?.status ?? error?.httpCode ?? error?.statusCode;
+		if (status) {
+			message = `HTTP ${status} calling ${wsfunction}: ${error?.response?.statusText || message}`;
+			if (status === 404) {
+				description = `The Moodle REST endpoint was not found at ${fullUrl}. Check the Moodle URL and that the REST protocol is enabled.`;
+			}
+		}
+		throw new NodeApiError(this.getNode(), (error ?? {}) as JsonObject, {
+			message,
+			description: description || undefined,
+			httpCode: status ? String(status) : undefined,
+		});
+	}
+
+	let parsed: any = response;
+	if (typeof response === 'string') {
+		const text = response.trim();
+		if (text === '' || text === 'null') {
+			return null;
+		}
+		try {
+			parsed = JSON.parse(text);
+		} catch {
+			throw new NodeApiError(this.getNode(), { message: text } as JsonObject, {
+				message: `Moodle returned a non-JSON response for ${wsfunction}`,
+				description: text.slice(0, 2000),
+			});
+		}
+	} else if (Buffer.isBuffer(response)) {
+		const text = response.toString('utf8').trim();
+		parsed = text === '' || text === 'null' ? null : JSON.parse(text);
+	}
+
+	if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && (parsed.exception || parsed.errorcode)) {
+		const details = [
+			parsed.errorcode ? `Error code: ${parsed.errorcode}` : '',
+			parsed.debuginfo ? `Debug info: ${parsed.debuginfo}` : '',
+			wsfunction ? `Function: ${wsfunction}` : '',
+		]
+			.filter(Boolean)
+			.join('\n');
+		throw new NodeApiError(this.getNode(), parsed as JsonObject, {
+			message: parsed.message || `Moodle API error (${parsed.errorcode || 'unknown'})`,
+			description: details,
+		});
+	}
+
+	return parsed;
 }

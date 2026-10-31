@@ -3,6 +3,7 @@ dist/
 *.js.map
 *.d.ts
 *.js
+!.eslintrc.js
 !index.js
 !gulpfile.js
 !build_and_run.sh

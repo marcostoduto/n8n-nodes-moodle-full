@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { credentials, isConfigured, uniqueSuffix } from './config';
-import { runNode } from '../utils/n8nMock';
+import { runNode, runNodeItems } from '../utils/n8nMock';
 
 const suffix = uniqueSuffix();
 const groupName = `n8ngroup_${suffix}`;
@@ -12,13 +12,10 @@ let createdGroupId: number | undefined;
 
 describe.skipIf(!isConfigured)('Group resource', () => {
 	it('prepares a course', async () => {
-		const categories = await runNode(
-			{ resource: 'course', operation: 'getCategories' },
-			credentials!,
-		);
+		const categories = await runNodeItems({ resource: 'course', operation: 'getCategories' }, credentials!);
 		const categoryId = Number(categories[0].id);
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'course',
 				operation: 'create',
@@ -37,7 +34,7 @@ describe.skipIf(!isConfigured)('Group resource', () => {
 	it('creates a group in the course', async () => {
 		expect(testCourseId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'group',
 				operation: 'create',
@@ -56,7 +53,7 @@ describe.skipIf(!isConfigured)('Group resource', () => {
 	it('gets the created group by id', async () => {
 		expect(createdGroupId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{ resource: 'group', operation: 'get', groupId: createdGroupId },
 			credentials!,
 		);
@@ -69,7 +66,7 @@ describe.skipIf(!isConfigured)('Group resource', () => {
 	it('lists the groups of the course', async () => {
 		expect(testCourseId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'group',
 				operation: 'getCourseGroups',
@@ -96,7 +93,7 @@ describe.skipIf(!isConfigured)('Group resource', () => {
 			credentials!,
 		);
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{ resource: 'group', operation: 'get', groupId: createdGroupId },
 			credentials!,
 		);
@@ -106,10 +103,7 @@ describe.skipIf(!isConfigured)('Group resource', () => {
 	it('deletes the created group', async () => {
 		expect(createdGroupId).toBeDefined();
 
-		const result = await runNode(
-			{ resource: 'group', operation: 'delete', groupId: createdGroupId },
-			credentials!,
-		);
+		const result = await runNode({ resource: 'group', operation: 'delete', groupId: createdGroupId }, credentials!);
 
 		expect(result).toHaveProperty('success', true);
 	});
@@ -120,20 +114,14 @@ afterAll(async () => {
 
 	if (createdGroupId !== undefined) {
 		try {
-			await runNode(
-				{ resource: 'group', operation: 'delete', groupId: createdGroupId },
-				credentials!,
-			);
+			await runNode({ resource: 'group', operation: 'delete', groupId: createdGroupId }, credentials!);
 		} catch {
 			// ignore cleanup errors
 		}
 	}
 	if (testCourseId !== undefined) {
 		try {
-			await runNode(
-				{ resource: 'course', operation: 'delete', courseId: testCourseId },
-				credentials!,
-			);
+			await runNode({ resource: 'course', operation: 'delete', courseId: testCourseId }, credentials!);
 		} catch {
 			// ignore cleanup errors
 		}

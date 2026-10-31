@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { credentials, isConfigured, uniqueSuffix } from './config';
-import { runNode } from '../utils/n8nMock';
+import { runNode, runNodeItems } from '../utils/n8nMock';
 
 const suffix = uniqueSuffix();
 const username = `n8nenrol_${suffix}`;
@@ -12,7 +12,7 @@ let testCourseId: number | undefined;
 let manualInstanceId: number | undefined;
 
 async function createTestUser(): Promise<number> {
-	const result = await runNode(
+	const result = await runNodeItems(
 		{
 			resource: 'user',
 			operation: 'create',
@@ -29,13 +29,10 @@ async function createTestUser(): Promise<number> {
 }
 
 async function createTestCourse(): Promise<number> {
-	const categories = await runNode(
-		{ resource: 'course', operation: 'getCategories' },
-		credentials!,
-	);
+	const categories = await runNodeItems({ resource: 'course', operation: 'getCategories' }, credentials!);
 	const categoryId = Number(categories[0].id);
 
-	const result = await runNode(
+	const result = await runNodeItems(
 		{
 			resource: 'course',
 			operation: 'create',
@@ -79,7 +76,7 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 	it('returns the user in the course user list', async () => {
 		expect(testCourseId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'enrollment',
 				operation: 'getCourseUsers',
@@ -96,7 +93,7 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 	it('returns the course in the user course list', async () => {
 		expect(testUserId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'enrollment',
 				operation: 'getUserCourses',
@@ -113,7 +110,7 @@ describe.skipIf(!isConfigured)('Enrollment resource', () => {
 	it('resolves the manual enrolment instance id', async () => {
 		expect(testCourseId).toBeDefined();
 
-		const result = await runNode(
+		const result = await runNodeItems(
 			{
 				resource: 'course',
 				operation: 'getEnrolmentMethods',
@@ -153,10 +150,7 @@ afterAll(async () => {
 
 	if (testCourseId !== undefined) {
 		try {
-			await runNode(
-				{ resource: 'course', operation: 'delete', courseId: testCourseId },
-				credentials!,
-			);
+			await runNode({ resource: 'course', operation: 'delete', courseId: testCourseId }, credentials!);
 		} catch {
 			// ignore cleanup errors
 		}
