@@ -62,6 +62,12 @@ Create a **Moodle API** credential in n8n with:
 | **Wiki** | Get By Course, Get Subwikis, Get Pages, Get Page Contents, Edit Page, New Page |
 | **Workshop** | Get By Course, Get Phases, Get Assessment Form, Get Submissions, Get Grades, View |
 
+> **Not available in Moodle core:** Badge → Issue/Revoke, Calendar → Update and
+> Message → Create Conversation have no core web service; these operations stop with a
+> clear error. Custom Certificate and Joomdle need the corresponding Moodle plugins.
+> Operations such as Quiz → Start Attempt, Lesson → Launch Attempt, SCORM → Insert
+> Tracks and User → Agree Site Policy always act as the user that owns the token.
+
 ## Requirements
 
 - n8n (any version with community node support)
@@ -86,10 +92,25 @@ npm run lint
 
 ## Testing
 
-The project includes an integration test suite (vitest) that runs the node's
-`execute()` against a **real Moodle instance**.
+```bash
+npm test                 # unit + integration tests
+npm run test:integration # only the integration suite
+npm run test:watch       # watch mode
+```
 
-### Setup
+### Unit tests (no Moodle needed)
+
+`test/unit` runs **every operation of the node** against a fake Moodle server and
+validates each request it sends against the web service signatures exported from a
+real Moodle 4.5 site (`test/fixtures/moodle-ws-signatures.json`): unknown functions,
+unexpected keys and missing required keys make the tests fail. The fake n8n context
+(`test/utils/n8nMock.ts`) also behaves like n8n for hidden parameters: reading a
+parameter that is not displayed for the selected operation throws, exactly as it does
+in a real workflow.
+
+### Integration tests (real Moodle)
+
+`test/integration` runs the node's `execute()` against a **real Moodle instance**.
 
 1. Copy `.env.example` to `.env` and fill in your credentials:
 
@@ -104,33 +125,16 @@ The project includes an integration test suite (vitest) that runs the node's
 
    > `.env` is gitignored — never commit your token.
 
-2. Run the tests:
+2. Run `npm test`. If `.env` is missing, the integration tests are **skipped** (they don't fail).
 
-   ```bash
-   npm test                 # run all tests
-   npm run test:integration # run only the integration suite
-   npm run test:watch       # watch mode
-   ```
+Covered: system, user, course (categories, sections, duplicate), enrollment, group and
+groupings, cohort and cohort members, calendar, notes, messages, grades, files and
+competency templates. Each test creates unique data and removes it afterwards.
 
-If `.env` is missing, the integration tests are **skipped** (they don't fail).
-
-### Covered resources
-
-- **System** — getSiteInfo, getAuthPlugins, getSiteFeatures
-- **User** — create, get, getByField, getPreferences, update, delete
-- **Course** — createCategory, create, get, getAll, getSections, update, delete, deleteCategory
-- **Enrollment** — enrol, getCourseUsers, getUserCourses, unenrol
-- **Group** — create, get, getCourseGroups, update, delete
-- **Cohort** — create, get, update, delete
-
-Each test creates unique test data and cleans it up afterwards (`afterAll`).
-
-### Requirements for a successful run
-
-The web service token user needs the capabilities to run the tested functions
-(`core_user_*`, `core_course_*`, `core_group_*`, `core_cohort_*`,
-`core_enrol_*`, `enrol_manual_*`) and the standard **student** role id (`5`) must
-exist for the enrollment tests.
+The token user needs the capabilities for these functions and the standard **student**
+role id (`5`) must exist. A disposable Moodle can be started with Docker
+(`bitnamilegacy/moodle:4.5` + `mariadb`); enable web services and the REST protocol,
+then create a token for an external service that includes the functions above.
 
 ## License
 

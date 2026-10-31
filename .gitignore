@@ -9,3 +9,4 @@ dist/
 !*.config.js
 .env
 .env.local
+!.eslintrc.js
